@@ -1,13 +1,14 @@
-import { useState, type ReactNode } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { useEffect, useState, type ReactNode } from "react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   Receipt,
-  Upload,
   GitCompareArrows,
   Bell,
   Building2,
   Users,
+  Landmark,
+  Wallet,
   Settings,
   LifeBuoy,
   LogOut,
@@ -16,32 +17,55 @@ import {
   Search,
 } from "lucide-react";
 import { Connect7Logo } from "./connect7-logo";
+import { useAuth, isPathAllowed, type AppRole } from "@/lib/auth-context";
 
 type NavItem = {
   label: string;
   to: string;
   icon: React.ComponentType<{ className?: string }>;
+  roles: AppRole[];
 };
 
 const NAV: NavItem[] = [
-  { label: "Dashboard", to: "/", icon: LayoutDashboard },
-  { label: "Vendas Ucase", to: "/vendas", icon: Receipt },
-  { label: "Importar", to: "/importar", icon: Upload },
-  { label: "Conciliação", to: "/conciliacao", icon: GitCompareArrows },
-  { label: "Alertas", to: "/alertas", icon: Bell },
-  { label: "Cadastros", to: "/cadastros", icon: Building2 },
-  { label: "Usuários", to: "/usuarios", icon: Users },
+  { label: "Dashboard", to: "/", icon: LayoutDashboard, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+  { label: "Vendas Ucase", to: "/vendas", icon: Receipt, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+  { label: "Conciliação", to: "/conciliacao", icon: GitCompareArrows, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+  { label: "Alertas", to: "/alertas", icon: Bell, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+  { label: "Financeiras", to: "/financeiras", icon: Landmark, roles: ["administrador"] },
+  { label: "Lojas", to: "/lojas", icon: Building2, roles: ["administrador"] },
+  { label: "Contas Bancárias", to: "/contas", icon: Wallet, roles: ["administrador", "gerente"] },
+  { label: "Usuários", to: "/usuarios", icon: Users, roles: ["administrador", "gerente"] },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const { location } = useRouterState();
+  const { profile, loading, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  // Redireciona se o role não permite a rota
+  useEffect(() => {
+    if (!profile) return;
+    if (!isPathAllowed(profile.role, location.pathname)) {
+      navigate({ to: "/", replace: true });
+    }
+  }, [profile, location.pathname, navigate]);
+
+  if (loading || !profile) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-sm text-muted-foreground">Carregando…</div>
+      </div>
+    );
+  }
+
+  const items = NAV.filter((i) => i.roles.includes(profile.role));
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Sidebar (desktop) */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border bg-sidebar lg:flex lg:flex-col">
-        <SidebarBody currentPath={location.pathname} />
+        <SidebarBody items={items} currentPath={location.pathname} />
       </aside>
 
       {/* Sidebar (mobile) */}
@@ -52,7 +76,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
             onClick={() => setOpen(false)}
           />
           <aside className="absolute inset-y-0 left-0 flex w-64 flex-col border-r border-sidebar-border bg-sidebar">
-            <SidebarBody currentPath={location.pathname} onNavigate={() => setOpen(false)} />
+            <SidebarBody
+              items={items}
+              currentPath={location.pathname}
+              onNavigate={() => setOpen(false)}
+            />
           </aside>
         </div>
       )}
@@ -87,19 +115,24 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
             <div className="flex items-center gap-2.5 rounded-md border border-border bg-card px-2 py-1.5">
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-                AS
+                {initials(profile.nome)}
               </div>
               <div className="hidden text-left leading-tight sm:block">
-                <div className="text-xs font-semibold text-foreground">Ana Silva</div>
+                <div className="text-xs font-semibold text-foreground">{profile.nome}</div>
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Administrador
+                  {roleLabel(profile.role)}
                 </div>
               </div>
             </div>
 
             <button
+              onClick={async () => {
+                await signOut();
+                navigate({ to: "/auth", replace: true });
+              }}
               className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label="Sair"
+              title="Sair"
             >
               <LogOut className="h-4 w-4" />
             </button>
@@ -113,9 +146,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
 }
 
 function SidebarBody({
+  items,
   currentPath,
   onNavigate,
 }: {
+  items: NavItem[];
   currentPath: string;
   onNavigate?: () => void;
 }) {
@@ -126,7 +161,7 @@ function SidebarBody({
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-        {NAV.map((item) => {
+        {items.map((item) => {
           const active =
             item.to === "/" ? currentPath === "/" : currentPath.startsWith(item.to);
           const Icon = item.icon;
@@ -152,35 +187,106 @@ function SidebarBody({
       </nav>
 
       <div className="border-t border-sidebar-border p-3">
-        <button className="mb-2 flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-95">
-          + Nova conciliação
-        </button>
-        <Link
-          to="/"
-          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent/50"
-        >
+        <div className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/70">
           <Settings className="h-4 w-4 text-muted-foreground" />
           Configurações
-        </Link>
-        <Link
-          to="/"
-          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent/50"
-        >
+        </div>
+        <div className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/70">
           <LifeBuoy className="h-4 w-4 text-muted-foreground" />
           Suporte
-        </Link>
+        </div>
       </div>
     </>
   );
 }
 
 function StoreSelector() {
+  const { profile, lojas, selectedLojaId, setSelectedLojaId } = useAuth();
+  const [open, setOpen] = useState(false);
+  if (!profile) return null;
+
+  const isGlobal = profile.role === "administrador" || profile.role === "master";
+
+  if (!isGlobal) {
+    const nome = lojas.find((l) => l.id === profile.id_loja)?.nome ?? "Minha loja";
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground">
+        <Building2 className="h-4 w-4 text-muted-foreground" />
+        <span className="font-medium">{nome}</span>
+      </div>
+    );
+  }
+
+  const label =
+    selectedLojaId === null
+      ? "Todas as unidades"
+      : (lojas.find((l) => l.id === selectedLojaId)?.nome ?? "Unidade");
+
   return (
-    <button className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground hover:bg-muted">
-      <Building2 className="h-4 w-4 text-muted-foreground" />
-      <span className="hidden font-medium sm:inline">Todas as unidades</span>
-      <span className="font-medium sm:hidden">Unidades</span>
-      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-    </button>
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground hover:bg-muted"
+      >
+        <Building2 className="h-4 w-4 text-muted-foreground" />
+        <span className="font-medium">{label}</span>
+        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full z-20 mt-1 w-64 overflow-hidden rounded-md border border-border bg-card shadow-lg">
+            <button
+              className={`flex w-full items-center px-3 py-2 text-left text-sm hover:bg-muted ${selectedLojaId === null ? "font-semibold text-primary" : "text-foreground"}`}
+              onClick={() => {
+                setSelectedLojaId(null);
+                setOpen(false);
+              }}
+            >
+              Todas as unidades
+            </button>
+            <div className="max-h-72 overflow-y-auto border-t border-border">
+              {lojas.map((l) => (
+                <button
+                  key={l.id}
+                  className={`flex w-full items-center px-3 py-2 text-left text-sm hover:bg-muted ${selectedLojaId === l.id ? "font-semibold text-primary" : "text-foreground"}`}
+                  onClick={() => {
+                    setSelectedLojaId(l.id);
+                    setOpen(false);
+                  }}
+                >
+                  {l.nome}
+                </button>
+              ))}
+              {lojas.length === 0 && (
+                <div className="px-3 py-2 text-xs text-muted-foreground">
+                  Nenhuma loja cadastrada
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
+}
+
+function initials(nome: string): string {
+  return nome
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function roleLabel(role: AppRole): string {
+  const map: Record<AppRole, string> = {
+    administrador: "Administrador",
+    master: "Master",
+    gerente: "Gerente",
+    analista: "Analista",
+    operador: "Operador",
+  };
+  return map[role];
 }
