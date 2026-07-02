@@ -85,11 +85,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Load lojas
     const { data: lojasData } = await supabase
       .from("lojas")
-      .select("id, nome")
-      .order("nome");
+      .select("id, nome_fantasia")
+      .order("nome_fantasia");
 
-    const list = (lojasData ?? []) as Loja[];
+    const list: Loja[] = (lojasData ?? []).map((l) => ({
+      id: l.id,
+      nome: l.nome_fantasia,
+    }));
     setLojas(list);
+
 
     // default selection
     if (perfil.role === "administrador" || perfil.role === "master") {
