@@ -46,7 +46,7 @@ const ROLE_ROUTES: Record<AppRole, string[]> = {
     "/contas",
     "/usuarios",
   ],
-  master: ["/", "/vendas", "/conciliacao", "/alertas"],
+  master: ["/", "/conciliacao", "/alertas"],
   gerente: ["/", "/vendas", "/conciliacao", "/alertas", "/contas", "/usuarios"],
   analista: ["/", "/vendas", "/conciliacao", "/alertas"],
   operador: ["/", "/vendas", "/conciliacao", "/alertas"],
