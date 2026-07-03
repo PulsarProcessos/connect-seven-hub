@@ -16,6 +16,7 @@ import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedLojasRouteImport } from './routes/_authenticated/lojas'
 import { Route as AuthenticatedFinanceirasRouteImport } from './routes/_authenticated/financeiras'
+import { Route as AuthenticatedExtratoRouteImport } from './routes/_authenticated/extrato'
 import { Route as AuthenticatedContasRouteImport } from './routes/_authenticated/contas'
 import { Route as AuthenticatedConciliacaoRouteImport } from './routes/_authenticated/conciliacao'
 import { Route as AuthenticatedAlertasRouteImport } from './routes/_authenticated/alertas'
@@ -55,6 +56,11 @@ const AuthenticatedFinanceirasRoute =
     path: '/financeiras',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedExtratoRoute = AuthenticatedExtratoRouteImport.update({
+  id: '/extrato',
+  path: '/extrato',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedContasRoute = AuthenticatedContasRouteImport.update({
   id: '/contas',
   path: '/contas',
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/alertas': typeof AuthenticatedAlertasRoute
   '/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/contas': typeof AuthenticatedContasRoute
+  '/extrato': typeof AuthenticatedExtratoRoute
   '/financeiras': typeof AuthenticatedFinanceirasRoute
   '/lojas': typeof AuthenticatedLojasRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/alertas': typeof AuthenticatedAlertasRoute
   '/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/contas': typeof AuthenticatedContasRoute
+  '/extrato': typeof AuthenticatedExtratoRoute
   '/financeiras': typeof AuthenticatedFinanceirasRoute
   '/lojas': typeof AuthenticatedLojasRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/_authenticated/alertas': typeof AuthenticatedAlertasRoute
   '/_authenticated/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/_authenticated/contas': typeof AuthenticatedContasRoute
+  '/_authenticated/extrato': typeof AuthenticatedExtratoRoute
   '/_authenticated/financeiras': typeof AuthenticatedFinanceirasRoute
   '/_authenticated/lojas': typeof AuthenticatedLojasRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/alertas'
     | '/conciliacao'
     | '/contas'
+    | '/extrato'
     | '/financeiras'
     | '/lojas'
     | '/usuarios'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
     | '/alertas'
     | '/conciliacao'
     | '/contas'
+    | '/extrato'
     | '/financeiras'
     | '/lojas'
     | '/usuarios'
@@ -137,6 +148,7 @@ export interface FileRouteTypes {
     | '/_authenticated/alertas'
     | '/_authenticated/conciliacao'
     | '/_authenticated/contas'
+    | '/_authenticated/extrato'
     | '/_authenticated/financeiras'
     | '/_authenticated/lojas'
     | '/_authenticated/usuarios'
@@ -200,6 +212,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFinanceirasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/extrato': {
+      id: '/_authenticated/extrato'
+      path: '/extrato'
+      fullPath: '/extrato'
+      preLoaderRoute: typeof AuthenticatedExtratoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/contas': {
       id: '/_authenticated/contas'
       path: '/contas'
@@ -228,6 +247,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlertasRoute: typeof AuthenticatedAlertasRoute
   AuthenticatedConciliacaoRoute: typeof AuthenticatedConciliacaoRoute
   AuthenticatedContasRoute: typeof AuthenticatedContasRoute
+  AuthenticatedExtratoRoute: typeof AuthenticatedExtratoRoute
   AuthenticatedFinanceirasRoute: typeof AuthenticatedFinanceirasRoute
   AuthenticatedLojasRoute: typeof AuthenticatedLojasRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
@@ -239,6 +259,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAlertasRoute: AuthenticatedAlertasRoute,
   AuthenticatedConciliacaoRoute: AuthenticatedConciliacaoRoute,
   AuthenticatedContasRoute: AuthenticatedContasRoute,
+  AuthenticatedExtratoRoute: AuthenticatedExtratoRoute,
   AuthenticatedFinanceirasRoute: AuthenticatedFinanceirasRoute,
   AuthenticatedLojasRoute: AuthenticatedLojasRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
