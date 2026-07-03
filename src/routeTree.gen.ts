@@ -17,6 +17,7 @@ import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedLojasRouteImport } from './routes/_authenticated/lojas'
 import { Route as AuthenticatedFinanceirasRouteImport } from './routes/_authenticated/financeiras'
 import { Route as AuthenticatedExtratoRouteImport } from './routes/_authenticated/extrato'
+import { Route as AuthenticatedDetalhamentoRouteImport } from './routes/_authenticated/detalhamento'
 import { Route as AuthenticatedContasRouteImport } from './routes/_authenticated/contas'
 import { Route as AuthenticatedConciliacaoRouteImport } from './routes/_authenticated/conciliacao'
 import { Route as AuthenticatedAlertasRouteImport } from './routes/_authenticated/alertas'
@@ -61,6 +62,12 @@ const AuthenticatedExtratoRoute = AuthenticatedExtratoRouteImport.update({
   path: '/extrato',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDetalhamentoRoute =
+  AuthenticatedDetalhamentoRouteImport.update({
+    id: '/detalhamento',
+    path: '/detalhamento',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedContasRoute = AuthenticatedContasRouteImport.update({
   id: '/contas',
   path: '/contas',
@@ -84,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/alertas': typeof AuthenticatedAlertasRoute
   '/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/contas': typeof AuthenticatedContasRoute
+  '/detalhamento': typeof AuthenticatedDetalhamentoRoute
   '/extrato': typeof AuthenticatedExtratoRoute
   '/financeiras': typeof AuthenticatedFinanceirasRoute
   '/lojas': typeof AuthenticatedLojasRoute
@@ -95,6 +103,7 @@ export interface FileRoutesByTo {
   '/alertas': typeof AuthenticatedAlertasRoute
   '/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/contas': typeof AuthenticatedContasRoute
+  '/detalhamento': typeof AuthenticatedDetalhamentoRoute
   '/extrato': typeof AuthenticatedExtratoRoute
   '/financeiras': typeof AuthenticatedFinanceirasRoute
   '/lojas': typeof AuthenticatedLojasRoute
@@ -109,6 +118,7 @@ export interface FileRoutesById {
   '/_authenticated/alertas': typeof AuthenticatedAlertasRoute
   '/_authenticated/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/_authenticated/contas': typeof AuthenticatedContasRoute
+  '/_authenticated/detalhamento': typeof AuthenticatedDetalhamentoRoute
   '/_authenticated/extrato': typeof AuthenticatedExtratoRoute
   '/_authenticated/financeiras': typeof AuthenticatedFinanceirasRoute
   '/_authenticated/lojas': typeof AuthenticatedLojasRoute
@@ -124,6 +134,7 @@ export interface FileRouteTypes {
     | '/alertas'
     | '/conciliacao'
     | '/contas'
+    | '/detalhamento'
     | '/extrato'
     | '/financeiras'
     | '/lojas'
@@ -135,6 +146,7 @@ export interface FileRouteTypes {
     | '/alertas'
     | '/conciliacao'
     | '/contas'
+    | '/detalhamento'
     | '/extrato'
     | '/financeiras'
     | '/lojas'
@@ -148,6 +160,7 @@ export interface FileRouteTypes {
     | '/_authenticated/alertas'
     | '/_authenticated/conciliacao'
     | '/_authenticated/contas'
+    | '/_authenticated/detalhamento'
     | '/_authenticated/extrato'
     | '/_authenticated/financeiras'
     | '/_authenticated/lojas'
@@ -219,6 +232,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedExtratoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/detalhamento': {
+      id: '/_authenticated/detalhamento'
+      path: '/detalhamento'
+      fullPath: '/detalhamento'
+      preLoaderRoute: typeof AuthenticatedDetalhamentoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/contas': {
       id: '/_authenticated/contas'
       path: '/contas'
@@ -247,6 +267,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlertasRoute: typeof AuthenticatedAlertasRoute
   AuthenticatedConciliacaoRoute: typeof AuthenticatedConciliacaoRoute
   AuthenticatedContasRoute: typeof AuthenticatedContasRoute
+  AuthenticatedDetalhamentoRoute: typeof AuthenticatedDetalhamentoRoute
   AuthenticatedExtratoRoute: typeof AuthenticatedExtratoRoute
   AuthenticatedFinanceirasRoute: typeof AuthenticatedFinanceirasRoute
   AuthenticatedLojasRoute: typeof AuthenticatedLojasRoute
@@ -259,6 +280,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAlertasRoute: AuthenticatedAlertasRoute,
   AuthenticatedConciliacaoRoute: AuthenticatedConciliacaoRoute,
   AuthenticatedContasRoute: AuthenticatedContasRoute,
+  AuthenticatedDetalhamentoRoute: AuthenticatedDetalhamentoRoute,
   AuthenticatedExtratoRoute: AuthenticatedExtratoRoute,
   AuthenticatedFinanceirasRoute: AuthenticatedFinanceirasRoute,
   AuthenticatedLojasRoute: AuthenticatedLojasRoute,
