@@ -1,13 +1,36 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import {
-  TrendingUp,
-  Wallet,
-  AlertTriangle,
-  Activity,
-  ArrowUpRight,
-  ArrowDownRight,
-} from "lucide-react";
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
+import { TrendingUp, Wallet, Clock, AlertTriangle } from "lucide-react";
 import { AppLayout } from "@/components/app-layout";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -16,283 +39,353 @@ export const Route = createFileRoute("/_authenticated/")({
       {
         name: "description",
         content:
-          "Painel consolidado do Connect 7: vendas, conciliação bancária e recebíveis de adquirentes para toda a rede.",
+          "Painel consolidado do Connect 7: vendas, recebíveis previstos e conciliados.",
       },
     ],
   }),
   component: Dashboard,
 });
 
-type Kpi = {
-  label: string;
-  value: string;
-  delta: string;
-  trend: "up" | "down";
-  icon: React.ComponentType<{ className?: string }>;
-  tone: "primary" | "success" | "warning" | "muted";
+type Venda = {
+  id: string;
+  id_loja: string;
+  id_financeira: string;
+  data_venda: string;
+  mes_venda: string;
+  valor_bruto: number;
+  valor_liquido_previsto: number;
+  status_conciliacao: "pendente" | "conciliado" | "atrasado";
 };
+type Financeira = { id: string; nome: string };
+type Loja = { id: string; nome_fantasia: string };
+type Conc = { id_venda_ucase: string; valor_pago_banco: number };
 
-const KPIS: Kpi[] = [
-  {
-    label: "Vendas totais (mês)",
-    value: "R$ 1.248.580,00",
-    delta: "+12,4%",
-    trend: "up",
-    icon: TrendingUp,
-    tone: "primary",
-  },
-  {
-    label: "Saldo conciliado",
-    value: "R$ 985.208,45",
-    delta: "+4,3%",
-    trend: "up",
-    icon: Wallet,
-    tone: "success",
-  },
-  {
-    label: "Pendências críticas",
-    value: "24 unidades",
-    delta: "−2,1%",
-    trend: "down",
-    icon: AlertTriangle,
-    tone: "warning",
-  },
-  {
-    label: "Ticket médio do grupo",
-    value: "R$ 158,28",
-    delta: "+0,7%",
-    trend: "up",
-    icon: Activity,
-    tone: "muted",
-  },
-];
+const brl = (n: number) =>
+  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+function currentMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
 function Dashboard() {
+  const { profile, selectedLojaId } = useAuth();
+  const isGlobal =
+    profile?.role === "administrador" || profile?.role === "master";
+
+  const [vendas, setVendas] = useState<Venda[]>([]);
+  const [financeiras, setFinanceiras] = useState<Financeira[]>([]);
+  const [lojas, setLojas] = useState<Loja[]>([]);
+  const [conc, setConc] = useState<Conc[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [fFinanceira, setFFinanceira] = useState<string>("all");
+  const [fMes, setFMes] = useState<string>("all");
+  const [fStatus, setFStatus] = useState<string>("all");
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      let q = supabase
+        .from("vendas_ucase")
+        .select(
+          "id, id_loja, id_financeira, data_venda, mes_venda, valor_bruto, valor_liquido_previsto, status_conciliacao",
+        );
+      if (!isGlobal && profile?.id_loja) q = q.eq("id_loja", profile.id_loja);
+      else if (isGlobal && selectedLojaId) q = q.eq("id_loja", selectedLojaId);
+
+      const [{ data: v }, { data: f }, { data: l }, { data: c }] =
+        await Promise.all([
+          q.order("data_venda", { ascending: false }),
+          supabase.from("financeiras").select("id, nome").order("nome"),
+          supabase.from("lojas").select("id, nome_fantasia").order("nome_fantasia"),
+          supabase
+            .from("conciliacao_extrato")
+            .select("id_venda_ucase, valor_pago_banco"),
+        ]);
+      setVendas((v ?? []) as Venda[]);
+      setFinanceiras((f ?? []) as Financeira[]);
+      setLojas((l ?? []) as Loja[]);
+      setConc((c ?? []) as Conc[]);
+      setLoading(false);
+    })();
+  }, [profile?.id, selectedLojaId, isGlobal, profile?.id_loja]);
+
+  const filtered = useMemo(() => {
+    return vendas.filter((v) => {
+      if (fFinanceira !== "all" && v.id_financeira !== fFinanceira) return false;
+      if (fMes !== "all" && v.mes_venda !== fMes) return false;
+      if (fStatus !== "all" && v.status_conciliacao !== fStatus) return false;
+      return true;
+    });
+  }, [vendas, fFinanceira, fMes, fStatus]);
+
+  const mes = currentMonth();
+  const doMes = filtered.filter((v) => v.mes_venda === mes);
+  const totBruto = doMes.reduce((s, v) => s + Number(v.valor_bruto), 0);
+  const totLiquido = doMes.reduce(
+    (s, v) => s + Number(v.valor_liquido_previsto),
+    0,
+  );
+  const concIds = new Set(conc.map((c) => c.id_venda_ucase));
+  const totConc = doMes
+    .filter((v) => concIds.has(v.id))
+    .reduce((s, v) => s + Number(v.valor_liquido_previsto), 0);
+  const totPend = doMes
+    .filter((v) => v.status_conciliacao === "pendente")
+    .reduce((s, v) => s + Number(v.valor_liquido_previsto), 0);
+  const totAtr = doMes
+    .filter((v) => v.status_conciliacao === "atrasado")
+    .reduce((s, v) => s + Number(v.valor_liquido_previsto), 0);
+
+  // Bar chart: vendas por mês (líquido previsto)
+  const porMes = useMemo(() => {
+    const map = new Map<string, { mes: string; bruto: number; liquido: number }>();
+    for (const v of filtered) {
+      const cur = map.get(v.mes_venda) ?? {
+        mes: v.mes_venda,
+        bruto: 0,
+        liquido: 0,
+      };
+      cur.bruto += Number(v.valor_bruto);
+      cur.liquido += Number(v.valor_liquido_previsto);
+      map.set(v.mes_venda, cur);
+    }
+    return [...map.values()].sort((a, b) => a.mes.localeCompare(b.mes)).slice(-12);
+  }, [filtered]);
+
+  // Line: previsto vs conciliado por mês
+  const evolucao = useMemo(() => {
+    const map = new Map<string, { mes: string; previsto: number; conciliado: number }>();
+    for (const v of filtered) {
+      const cur = map.get(v.mes_venda) ?? {
+        mes: v.mes_venda,
+        previsto: 0,
+        conciliado: 0,
+      };
+      cur.previsto += Number(v.valor_liquido_previsto);
+      if (concIds.has(v.id)) cur.conciliado += Number(v.valor_liquido_previsto);
+      map.set(v.mes_venda, cur);
+    }
+    return [...map.values()].sort((a, b) => a.mes.localeCompare(b.mes)).slice(-12);
+  }, [filtered, concIds]);
+
+  const meses = useMemo(
+    () => [...new Set(vendas.map((v) => v.mes_venda))].sort().reverse(),
+    [vendas],
+  );
+
+  // Consolidado por filial (apenas global)
+  const porFilial = useMemo(() => {
+    if (!isGlobal) return [];
+    const map = new Map<
+      string,
+      { id: string; bruto: number; liquido: number; conciliado: number; pendente: number; atrasado: number }
+    >();
+    for (const v of filtered) {
+      const cur = map.get(v.id_loja) ?? {
+        id: v.id_loja,
+        bruto: 0,
+        liquido: 0,
+        conciliado: 0,
+        pendente: 0,
+        atrasado: 0,
+      };
+      cur.bruto += Number(v.valor_bruto);
+      cur.liquido += Number(v.valor_liquido_previsto);
+      if (concIds.has(v.id)) cur.conciliado += Number(v.valor_liquido_previsto);
+      if (v.status_conciliacao === "pendente")
+        cur.pendente += Number(v.valor_liquido_previsto);
+      if (v.status_conciliacao === "atrasado")
+        cur.atrasado += Number(v.valor_liquido_previsto);
+      map.set(v.id_loja, cur);
+    }
+    return [...map.values()].sort((a, b) => b.liquido - a.liquido);
+  }, [filtered, concIds, isGlobal]);
+
+  const lojaNome = (id: string) =>
+    lojas.find((l) => l.id === id)?.nome_fantasia ?? "—";
+
   return (
     <AppLayout>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Visão consolidada
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Acompanhe o desempenho financeiro em tempo real de toda a rede.
-          </p>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Visão consolidada de vendas e recebíveis.
+        </p>
+      </div>
+
+      {/* Filtros */}
+      <div className="mb-6 flex flex-wrap gap-3">
+        <div className="min-w-[180px]">
+          <Select value={fFinanceira} onValueChange={setFFinanceira}>
+            <SelectTrigger><SelectValue placeholder="Financeira" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas financeiras</SelectItem>
+              {financeiras.map((f) => (
+                <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button className="rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted">
-            Exportar relatório
-          </button>
-          <button className="rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-95">
-            Filtrar dados
-          </button>
+        <div className="min-w-[160px]">
+          <Select value={fMes} onValueChange={setFMes}>
+            <SelectTrigger><SelectValue placeholder="Mês" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os meses</SelectItem>
+              {meses.map((m) => (
+                <SelectItem key={m} value={m}>{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="min-w-[160px]">
+          <Select value={fStatus} onValueChange={setFStatus}>
+            <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos status</SelectItem>
+              <SelectItem value="pendente">Pendente</SelectItem>
+              <SelectItem value="conciliado">Conciliado</SelectItem>
+              <SelectItem value="atrasado">Atrasado</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      {/* KPI grid */}
+      {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {KPIS.map((kpi) => (
-          <KpiCard key={kpi.label} kpi={kpi} />
-        ))}
+        <Kpi icon={TrendingUp} tone="primary" label="Vendas do mês (bruto)" value={brl(totBruto)} sub={`Líquido previsto: ${brl(totLiquido)}`} />
+        <Kpi icon={Wallet} tone="success" label="Recebido / conciliado" value={brl(totConc)} sub={`${doMes.filter(v => concIds.has(v.id)).length} vendas`} />
+        <Kpi icon={Clock} tone="muted" label="Pendente" value={brl(totPend)} sub={`${doMes.filter(v => v.status_conciliacao === "pendente").length} vendas`} />
+        <Kpi icon={AlertTriangle} tone="warning" label="Em atraso" value={brl(totAtr)} sub={`${doMes.filter(v => v.status_conciliacao === "atrasado").length} vendas`} />
       </div>
 
-      {/* Content grid placeholders */}
-      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <PanelCard
-          className="lg:col-span-2"
-          title="Volume de vendas vs. conciliação"
-          subtitle="Últimos 7 dias · atualização automática"
-          legend={[
-            { label: "Vendas", color: "bg-primary" },
-            { label: "Conciliado", color: "bg-primary/30" },
-          ]}
-        >
-          <ChartPlaceholder />
-        </PanelCard>
-
-        <PanelCard title="Performance por filial" subtitle="Top performance nesta semana">
-          <ul className="divide-y divide-border">
-            {[
-              { name: "Connect São Paulo", city: "Matriz Central", value: "R$ 458.200", status: "Conciliada" },
-              { name: "Connect Rio", city: "Filial RJ", value: "R$ 318.050", status: "Conciliada" },
-              { name: "Connect Curitiba", city: "Filial PR", value: "R$ 205.480", status: "Pendente" },
-            ].map((row) => (
-              <li key={row.name} className="flex items-center justify-between py-3">
-                <div>
-                  <div className="text-sm font-medium text-foreground">{row.name}</div>
-                  <div className="text-xs text-muted-foreground">{row.city}</div>
-                </div>
-                <div className="text-right">
-                  <div className="tabular text-sm font-semibold text-foreground">{row.value}</div>
-                  <StatusPill status={row.status} />
-                </div>
-              </li>
-            ))}
-          </ul>
-          <button className="mt-3 w-full rounded-md border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-muted">
-            Ver todas as filiais (24)
-          </button>
-        </PanelCard>
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <PanelCard
-          title={
-            <span className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-destructive/10 text-destructive">
-                <AlertTriangle className="h-3.5 w-3.5" />
-              </span>
-              Ação requerida
-            </span>
-          }
-          subtitle="Existem divergências não resolvidas em 4 filiais com data de vencimento hoje."
-        >
-          <button className="text-sm font-semibold text-primary hover:underline">
-            Visualizar pendências →
-          </button>
-        </PanelCard>
-
-        <PanelCard
-          title={
-            <span className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-success/15 text-success">
-                <Activity className="h-3.5 w-3.5" />
-              </span>
-              Status de integração
-            </span>
-          }
-          subtitle="Última sincronização: agora mesmo"
-        >
-          <div className="flex flex-wrap gap-4 text-xs">
-            <IntegrationDot label="Bancos" ok />
-            <IntegrationDot label="ERP" ok />
-            <IntegrationDot label="API Cartões" ok />
+      {/* Charts */}
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Panel title="Vendas por mês" subtitle="Bruto e líquido previsto (últimos 12 meses)">
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={porMes} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="mes" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                <Tooltip
+                  cursor={{ fill: "hsl(var(--muted))" }}
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                  formatter={(v: number) => brl(v)}
+                />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="bruto" name="Bruto" fill="hsl(215 20% 65%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="liquido" name="Líquido previsto" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-        </PanelCard>
+        </Panel>
+
+        <Panel title="Recebíveis: previsto vs conciliado" subtitle="Evolução mensal">
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={evolucao} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="mes" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                <Tooltip
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                  formatter={(v: number) => brl(v)}
+                />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Line type="monotone" dataKey="previsto" name="Previsto" stroke="hsl(215 20% 55%)" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="conciliado" name="Conciliado" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
       </div>
+
+      {/* Consolidado por filial */}
+      {isGlobal && (
+        <div className="mt-6">
+          <Panel title="Consolidado por filial" subtitle="Totais considerando os filtros aplicados">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Filial</TableHead>
+                    <TableHead className="text-right">Bruto</TableHead>
+                    <TableHead className="text-right">Líquido previsto</TableHead>
+                    <TableHead className="text-right">Conciliado</TableHead>
+                    <TableHead className="text-right">Pendente</TableHead>
+                    <TableHead className="text-right">Atrasado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {porFilial.length === 0 ? (
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Sem dados no período.</TableCell></TableRow>
+                  ) : porFilial.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{lojaNome(r.id)}</TableCell>
+                      <TableCell className="text-right font-mono text-sm">{brl(r.bruto)}</TableCell>
+                      <TableCell className="text-right font-mono text-sm">{brl(r.liquido)}</TableCell>
+                      <TableCell className="text-right font-mono text-sm text-success">{brl(r.conciliado)}</TableCell>
+                      <TableCell className="text-right font-mono text-sm text-muted-foreground">{brl(r.pendente)}</TableCell>
+                      <TableCell className="text-right font-mono text-sm text-destructive">{brl(r.atrasado)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </Panel>
+        </div>
+      )}
+
+      {loading && (
+        <div className="mt-6 text-center text-sm text-muted-foreground">Carregando…</div>
+      )}
     </AppLayout>
   );
 }
 
-function KpiCard({ kpi }: { kpi: Kpi }) {
-  const toneMap: Record<Kpi["tone"], string> = {
+function Kpi({
+  icon: Icon,
+  tone,
+  label,
+  value,
+  sub,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  tone: "primary" | "success" | "warning" | "muted";
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  const toneMap = {
     primary: "bg-primary/10 text-primary",
     success: "bg-success/15 text-success",
-    warning: "bg-warning/20 text-warning-foreground",
+    warning: "bg-destructive/10 text-destructive",
     muted: "bg-muted text-muted-foreground",
-  };
-  const Icon = kpi.icon;
-  const TrendIcon = kpi.trend === "up" ? ArrowUpRight : ArrowDownRight;
-  const trendClass = kpi.trend === "up" ? "text-success" : "text-destructive";
-
+  } as const;
   return (
-    <div className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-start justify-between">
-        <span className={`flex h-8 w-8 items-center justify-center rounded-md ${toneMap[kpi.tone]}`}>
+        <span className={`flex h-8 w-8 items-center justify-center rounded-md ${toneMap[tone]}`}>
           <Icon className="h-4 w-4" />
         </span>
-        <span className={`flex items-center gap-0.5 text-xs font-semibold ${trendClass}`}>
-          <TrendIcon className="h-3.5 w-3.5" />
-          {kpi.delta}
-        </span>
       </div>
-      <div className="mt-4 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        {kpi.label}
-      </div>
-      <div className="mt-1 tabular text-2xl font-semibold text-foreground">{kpi.value}</div>
+      <div className="mt-4 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
+      {sub && <div className="mt-1 text-xs text-muted-foreground">{sub}</div>}
     </div>
   );
 }
 
-function PanelCard({
-  title,
-  subtitle,
-  legend,
-  children,
-  className = "",
-}: {
-  title: React.ReactNode;
-  subtitle?: string;
-  legend?: { label: string; color: string }[];
-  children: React.ReactNode;
-  className?: string;
-}) {
+function Panel({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <section
-      className={`rounded-lg border border-border bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ${className}`}
-    >
-      <header className="mb-4 flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-          {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
-        </div>
-        {legend && (
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            {legend.map((l) => (
-              <span key={l.label} className="flex items-center gap-1.5">
-                <span className={`h-2 w-2 rounded-sm ${l.color}`} />
-                {l.label}
-              </span>
-            ))}
-          </div>
-        )}
-      </header>
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+      </div>
       {children}
-    </section>
-  );
-}
-
-function ChartPlaceholder() {
-  const bars = [42, 58, 46, 71, 88, 63, 51];
-  const labels = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-  return (
-    <div>
-      <div className="flex h-52 items-end gap-3">
-        {bars.map((h, i) => (
-          <div key={i} className="flex flex-1 flex-col items-center gap-1">
-            <div className="flex w-full flex-col-reverse gap-0.5">
-              <div
-                className="w-full rounded-t-sm bg-primary"
-                style={{ height: `${h * 1.6}px` }}
-              />
-              <div
-                className="w-full rounded-t-sm bg-primary/25"
-                style={{ height: `${h * 0.55}px` }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-2 flex gap-3">
-        {labels.map((l) => (
-          <div key={l} className="flex-1 text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            {l}
-          </div>
-        ))}
-      </div>
     </div>
-  );
-}
-
-function StatusPill({ status }: { status: string }) {
-  const isOk = status.toLowerCase().includes("concil");
-  return (
-    <span
-      className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-        isOk ? "bg-success/15 text-success" : "bg-warning/25 text-warning-foreground"
-      }`}
-    >
-      {status}
-    </span>
-  );
-}
-
-function IntegrationDot({ label, ok }: { label: string; ok: boolean }) {
-  return (
-    <span className="flex items-center gap-1.5 text-muted-foreground">
-      <span className={`h-2 w-2 rounded-full ${ok ? "bg-success" : "bg-destructive"}`} />
-      <span className="font-medium text-foreground">{label}</span>
-      <span>{ok ? "Online" : "Offline"}</span>
-    </span>
   );
 }
