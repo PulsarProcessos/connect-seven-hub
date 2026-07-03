@@ -30,6 +30,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { label: "Dashboard", to: "/", icon: LayoutDashboard, roles: ["administrador", "master", "gerente", "analista", "operador"] },
   { label: "Vendas Ucase", to: "/vendas", icon: Receipt, roles: ["administrador", "gerente", "analista", "operador"] },
+  { label: "Detalhamento Ucase", to: "/detalhamento", icon: Receipt, roles: ["administrador", "master", "gerente", "analista", "operador"] },
   { label: "Extrato Bancário", to: "/extrato", icon: FileUp, roles: ["administrador", "gerente", "analista", "operador"] },
   { label: "Conciliação", to: "/conciliacao", icon: GitCompareArrows, roles: ["administrador", "master", "gerente", "analista", "operador"] },
   { label: "Alertas", to: "/alertas", icon: Bell, roles: ["administrador", "master", "gerente", "analista", "operador"] },
