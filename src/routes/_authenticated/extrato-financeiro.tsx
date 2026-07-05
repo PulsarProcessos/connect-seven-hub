@@ -177,13 +177,10 @@ function ExtratoFinanceiroPage() {
             Visão unificada de vendas Ucase e movimentações manuais.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <NovaMovimentacaoButton />
-          <Button variant="outline" size="sm" onClick={exportCsv}>
-            <Download className="h-4 w-4" />
-            Exportar CSV
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={exportCsv}>
+          <Download className="h-4 w-4" />
+          Exportar CSV
+        </Button>
       </div>
 
       {/* Filtros */}
