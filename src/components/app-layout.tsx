@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard,
@@ -15,7 +15,11 @@ import {
   LogOut,
   Menu,
   ChevronDown,
+  ChevronRight,
   Search,
+  BarChart3,
+  Tags,
+  ListTree,
 } from "lucide-react";
 import { Connect7Logo } from "./connect7-logo";
 import { useAuth, isPathAllowed, type AppRole } from "@/lib/auth-context";
@@ -27,18 +31,46 @@ type NavItem = {
   roles: AppRole[];
 };
 
-const NAV: NavItem[] = [
-  { label: "Dashboard", to: "/", icon: LayoutDashboard, roles: ["administrador", "master", "gerente", "analista", "operador"] },
-  { label: "Vendas Ucase", to: "/vendas", icon: Receipt, roles: ["administrador", "gerente", "analista", "operador"] },
-  { label: "Detalhamento Ucase", to: "/detalhamento", icon: Receipt, roles: ["administrador", "master", "gerente", "analista", "operador"] },
-  { label: "Extrato Bancário", to: "/extrato", icon: FileUp, roles: ["administrador", "gerente", "analista", "operador"] },
-  { label: "Conciliação", to: "/conciliacao", icon: GitCompareArrows, roles: ["administrador", "master", "gerente", "analista", "operador"] },
-  { label: "Alertas", to: "/alertas", icon: Bell, roles: ["administrador", "master", "gerente", "analista", "operador"] },
-  { label: "Financeiras", to: "/financeiras", icon: Landmark, roles: ["administrador"] },
-  { label: "Lojas", to: "/lojas", icon: Building2, roles: ["administrador"] },
-  { label: "Contas Bancárias", to: "/contas", icon: Wallet, roles: ["administrador", "gerente"] },
-  { label: "Usuários", to: "/usuarios", icon: Users, roles: ["administrador", "gerente"] },
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const DASHBOARD: NavItem = {
+  label: "Dashboard",
+  to: "/",
+  icon: LayoutDashboard,
+  roles: ["administrador", "master", "gerente", "analista", "operador"],
+};
+
+const GROUPS: NavGroup[] = [
+  {
+    label: "Ucase",
+    items: [
+      { label: "Vendas", to: "/vendas", icon: Receipt, roles: ["administrador", "gerente", "analista", "operador"] },
+      { label: "Detalhamento", to: "/detalhamento", icon: BarChart3, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+    ],
+  },
+  {
+    label: "Movimentação Bancária",
+    items: [
+      { label: "Extrato Bancário", to: "/extrato", icon: FileUp, roles: ["administrador", "gerente", "analista", "operador"] },
+      { label: "Conciliação Bancária", to: "/conciliacao", icon: GitCompareArrows, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+      { label: "Extrato Financeiro", to: "/extrato-financeiro", icon: ListTree, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+    ],
+  },
+  {
+    label: "Configurações",
+    items: [
+      { label: "Financeiras", to: "/financeiras", icon: Landmark, roles: ["administrador"] },
+      { label: "Lojas", to: "/lojas", icon: Building2, roles: ["administrador"] },
+      { label: "Contas Bancárias", to: "/contas", icon: Wallet, roles: ["administrador", "gerente"] },
+      { label: "Categorias (DRE)", to: "/categorias", icon: Tags, roles: ["administrador"] },
+      { label: "Usuários", to: "/usuarios", icon: Users, roles: ["administrador", "gerente"] },
+    ],
+  },
 ];
+
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
