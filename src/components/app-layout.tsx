@@ -141,6 +141,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </div>
 
           <div className="ml-auto flex items-center gap-3">
+            <NovaMovimentacaoButton />
             <button className="relative rounded-md p-2 text-muted-foreground hover:bg-muted">
               <Bell className="h-5 w-5" />
               <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-destructive" />
