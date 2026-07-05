@@ -127,6 +127,68 @@ export type Database = {
           },
         ]
       }
+      dre_categorias: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          id_grupo: string
+          nome: string
+          ordem: number
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          id_grupo: string
+          nome: string
+          ordem?: number
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          id_grupo?: string
+          nome?: string
+          ordem?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dre_categorias_id_grupo_fkey"
+            columns: ["id_grupo"]
+            isOneToOne: false
+            referencedRelation: "dre_grupos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dre_grupos: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          natureza: Database["public"]["Enums"]["natureza_dre"]
+          nome: string
+          ordem: number
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          natureza?: Database["public"]["Enums"]["natureza_dre"]
+          nome: string
+          ordem?: number
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          natureza?: Database["public"]["Enums"]["natureza_dre"]
+          nome?: string
+          ordem?: number
+        }
+        Relationships: []
+      }
       extrato_lancamentos: {
         Row: {
           conciliado: boolean
@@ -336,6 +398,97 @@ export type Database = {
         }
         Relationships: []
       }
+      movimentacoes: {
+        Row: {
+          created_at: string
+          criado_por: string | null
+          data_movimento: string
+          descricao: string
+          id: string
+          id_categoria: string | null
+          id_conta_bancaria: string | null
+          id_conta_destino: string | null
+          id_extrato_lancamento: string | null
+          id_loja: string
+          status_conciliacao: Database["public"]["Enums"]["status_conciliacao"]
+          tipo: Database["public"]["Enums"]["tipo_movimentacao"]
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          criado_por?: string | null
+          data_movimento: string
+          descricao: string
+          id?: string
+          id_categoria?: string | null
+          id_conta_bancaria?: string | null
+          id_conta_destino?: string | null
+          id_extrato_lancamento?: string | null
+          id_loja: string
+          status_conciliacao?: Database["public"]["Enums"]["status_conciliacao"]
+          tipo: Database["public"]["Enums"]["tipo_movimentacao"]
+          valor: number
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string | null
+          data_movimento?: string
+          descricao?: string
+          id?: string
+          id_categoria?: string | null
+          id_conta_bancaria?: string | null
+          id_conta_destino?: string | null
+          id_extrato_lancamento?: string | null
+          id_loja?: string
+          status_conciliacao?: Database["public"]["Enums"]["status_conciliacao"]
+          tipo?: Database["public"]["Enums"]["tipo_movimentacao"]
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimentacoes_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios_perfis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentacoes_id_categoria_fkey"
+            columns: ["id_categoria"]
+            isOneToOne: false
+            referencedRelation: "dre_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentacoes_id_conta_bancaria_fkey"
+            columns: ["id_conta_bancaria"]
+            isOneToOne: false
+            referencedRelation: "contas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentacoes_id_conta_destino_fkey"
+            columns: ["id_conta_destino"]
+            isOneToOne: false
+            referencedRelation: "contas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentacoes_id_extrato_lancamento_fkey"
+            columns: ["id_extrato_lancamento"]
+            isOneToOne: false
+            referencedRelation: "extrato_lancamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentacoes_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usuarios_perfis: {
         Row: {
           ativo: boolean
@@ -440,7 +593,27 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vw_extrato_financeiro: {
+        Row: {
+          categoria_dre: string | null
+          created_at: string | null
+          data_movimento: string | null
+          descricao: string | null
+          grupo_dre: string | null
+          id: string | null
+          id_categoria: string | null
+          id_conta_bancaria: string | null
+          id_loja: string | null
+          natureza: string | null
+          origem: string | null
+          status_conciliacao:
+            | Database["public"]["Enums"]["status_conciliacao"]
+            | null
+          tipo: string | null
+          valor: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       can_access_loja: { Args: { p_loja: string }; Returns: boolean }
@@ -456,7 +629,9 @@ export type Database = {
     }
     Enums: {
       app_role: "administrador" | "master" | "gerente" | "analista" | "operador"
+      natureza_dre: "receita" | "despesa"
       status_conciliacao: "pendente" | "conciliado" | "atrasado"
+      tipo_movimentacao: "venda" | "despesa" | "transferencia"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -585,7 +760,9 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["administrador", "master", "gerente", "analista", "operador"],
+      natureza_dre: ["receita", "despesa"],
       status_conciliacao: ["pendente", "conciliado", "atrasado"],
+      tipo_movimentacao: ["venda", "despesa", "transferencia"],
     },
   },
 } as const
