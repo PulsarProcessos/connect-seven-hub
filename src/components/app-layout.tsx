@@ -21,6 +21,7 @@ import {
   ListTree,
 } from "lucide-react";
 import { Connect7Logo } from "./connect7-logo";
+import { NovaMovimentacaoButton } from "./nova-movimentacao-button";
 import { useAuth, isPathAllowed, type AppRole } from "@/lib/auth-context";
 
 type NavItem = {
