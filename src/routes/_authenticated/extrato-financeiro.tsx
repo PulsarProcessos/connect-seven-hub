@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download, LayoutList, TrendingDown, TrendingUp } from "lucide-react";
 import { AppLayout } from "@/components/app-layout";
-import { NovaMovimentacaoButton } from "@/components/nova-movimentacao-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -178,13 +177,10 @@ function ExtratoFinanceiroPage() {
             Visão unificada de vendas Ucase e movimentações manuais.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <NovaMovimentacaoButton />
-          <Button variant="outline" size="sm" onClick={exportCsv}>
-            <Download className="h-4 w-4" />
-            Exportar CSV
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={exportCsv}>
+          <Download className="h-4 w-4" />
+          Exportar CSV
+        </Button>
       </div>
 
       {/* Filtros */}
