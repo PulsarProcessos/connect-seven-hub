@@ -179,57 +179,126 @@ export function AppLayout({ children }: { children: ReactNode }) {
 }
 
 function SidebarBody({
-  items,
+  role,
   currentPath,
   onNavigate,
 }: {
-  items: NavItem[];
+  role: AppRole;
   currentPath: string;
   onNavigate?: () => void;
 }) {
+  const visibleGroups = useMemo(
+    () =>
+      GROUPS.map((g) => ({
+        label: g.label,
+        items: g.items.filter((i) => i.roles.includes(role)),
+      })).filter((g) => g.items.length > 0),
+    [role],
+  );
+
+  const showDashboard = DASHBOARD.roles.includes(role);
+
   return (
     <>
       <div className="flex h-16 items-center border-b border-sidebar-border px-4">
         <Connect7Logo />
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-        {items.map((item) => {
-          const active =
-            item.to === "/" ? currentPath === "/" : currentPath.startsWith(item.to);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.to}
-              to={item.to}
-              onClick={onNavigate}
-              className={`group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-              }`}
-            >
-              <Icon
-                className={`h-4 w-4 ${active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`}
-              />
-              {item.label}
-              {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
+        {showDashboard && (
+          <SidebarLink item={DASHBOARD} currentPath={currentPath} onNavigate={onNavigate} />
+        )}
+        {visibleGroups.map((g) => (
+          <SidebarGroup
+            key={g.label}
+            label={g.label}
+            items={g.items}
+            currentPath={currentPath}
+            onNavigate={onNavigate}
+          />
+        ))}
       </nav>
 
       <div className="border-t border-sidebar-border p-3">
-        <div className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/70">
-          <Settings className="h-4 w-4 text-muted-foreground" />
-          Configurações
-        </div>
         <div className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/70">
           <LifeBuoy className="h-4 w-4 text-muted-foreground" />
           Suporte
         </div>
       </div>
     </>
+  );
+}
+
+function SidebarGroup({
+  label,
+  items,
+  currentPath,
+  onNavigate,
+}: {
+  label: string;
+  items: NavItem[];
+  currentPath: string;
+  onNavigate?: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/60 hover:text-sidebar-foreground"
+      >
+        {open ? (
+          <ChevronDown className="h-3 w-3" />
+        ) : (
+          <ChevronRight className="h-3 w-3" />
+        )}
+        {label}
+      </button>
+      {open && (
+        <div className="mt-0.5 space-y-0.5">
+          {items.map((item) => (
+            <SidebarLink
+              key={item.to}
+              item={item}
+              currentPath={currentPath}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SidebarLink({
+  item,
+  currentPath,
+  onNavigate,
+}: {
+  item: NavItem;
+  currentPath: string;
+  onNavigate?: () => void;
+}) {
+  const active =
+    item.to === "/" ? currentPath === "/" : currentPath.startsWith(item.to);
+  const Icon = item.icon;
+  return (
+    <Link
+      to={item.to}
+      onClick={onNavigate}
+      className={`group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+        active
+          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+          : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+      }`}
+    >
+      <Icon
+        className={`h-4 w-4 ${active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`}
+      />
+      {item.label}
+      {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
+    </Link>
   );
 }
 
