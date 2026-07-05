@@ -199,13 +199,36 @@ function SidebarBody({
 
   const showDashboard = DASHBOARD.roles.includes(role);
 
+  // Descobre a qual grupo pertence a rota atual (match mais específico primeiro)
+  const activeGroupLabel = useMemo(() => {
+    let best: { label: string; len: number } | null = null;
+    for (const g of visibleGroups) {
+      for (const item of g.items) {
+        const matches =
+          item.to === "/" ? currentPath === "/" : currentPath.startsWith(item.to);
+        if (matches && (!best || item.to.length > best.len)) {
+          best = { label: g.label, len: item.to.length };
+        }
+      }
+    }
+    return best?.label ?? null;
+  }, [visibleGroups, currentPath]);
+
+  // Accordion: um único grupo aberto por vez. Inicia no grupo da página atual.
+  const [openGroup, setOpenGroup] = useState<string | null>(activeGroupLabel);
+
+  // Ao navegar para outra página, abre automaticamente o grupo correspondente.
+  useEffect(() => {
+    if (activeGroupLabel) setOpenGroup(activeGroupLabel);
+  }, [activeGroupLabel]);
+
   return (
     <>
       <div className="flex h-16 items-center border-b border-sidebar-border px-4">
         <Connect7Logo />
       </div>
 
-      <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {showDashboard && (
           <SidebarLink item={DASHBOARD} currentPath={currentPath} onNavigate={onNavigate} />
         )}
@@ -216,6 +239,10 @@ function SidebarBody({
             items={g.items}
             currentPath={currentPath}
             onNavigate={onNavigate}
+            isOpen={openGroup === g.label}
+            onToggle={() =>
+              setOpenGroup((cur) => (cur === g.label ? null : g.label))
+            }
           />
         ))}
       </nav>
@@ -235,39 +262,62 @@ function SidebarGroup({
   items,
   currentPath,
   onNavigate,
+  isOpen,
+  onToggle,
 }: {
   label: string;
   items: NavItem[];
   currentPath: string;
   onNavigate?: () => void;
+  isOpen: boolean;
+  onToggle: () => void;
 }) {
-  const [open, setOpen] = useState(true);
+  // Indica visualmente quando o grupo contém a página atual mas está fechado
+  const hasActive = items.some((item) =>
+    item.to === "/" ? currentPath === "/" : currentPath.startsWith(item.to),
+  );
+
   return (
     <div>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/60 hover:text-sidebar-foreground"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-[11px] font-semibold uppercase tracking-wider transition-colors ${
+          hasActive && !isOpen
+            ? "text-primary"
+            : "text-sidebar-foreground/60 hover:text-sidebar-foreground"
+        }`}
       >
-        {open ? (
-          <ChevronDown className="h-3 w-3" />
-        ) : (
-          <ChevronRight className="h-3 w-3" />
+        <ChevronRight
+          className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${
+            isOpen ? "rotate-90" : ""
+          }`}
+        />
+        <span className="truncate">{label}</span>
+        {hasActive && !isOpen && (
+          <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
         )}
-        {label}
       </button>
-      {open && (
-        <div className="mt-0.5 space-y-0.5">
-          {items.map((item) => (
-            <SidebarLink
-              key={item.to}
-              item={item}
-              currentPath={currentPath}
-              onNavigate={onNavigate}
-            />
-          ))}
+
+      <div
+        className={`grid transition-all duration-200 ease-in-out ${
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="mt-0.5 space-y-0.5 pb-1 pl-2">
+            {items.map((item) => (
+              <SidebarLink
+                key={item.to}
+                item={item}
+                currentPath={currentPath}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
