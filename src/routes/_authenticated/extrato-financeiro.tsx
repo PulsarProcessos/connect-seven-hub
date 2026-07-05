@@ -109,7 +109,7 @@ function ExtratoFinanceiroPage() {
         else q = q.eq("origem", "manual");
       }
       if (idCategoria !== "todos") q = q.eq("id_categoria", idCategoria);
-      if (status !== "todos") q = q.eq("status_conciliacao", status);
+      if (status !== "todos") q = q.eq("status_conciliacao", status as "pendente" | "conciliado" | "atrasado");
 
       const { data, error } = await q;
       if (error) throw error;
