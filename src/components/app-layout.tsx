@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard,
@@ -10,12 +10,15 @@ import {
   Users,
   Landmark,
   Wallet,
-  Settings,
   LifeBuoy,
   LogOut,
   Menu,
   ChevronDown,
+  ChevronRight,
   Search,
+  BarChart3,
+  Tags,
+  ListTree,
 } from "lucide-react";
 import { Connect7Logo } from "./connect7-logo";
 import { useAuth, isPathAllowed, type AppRole } from "@/lib/auth-context";
@@ -27,18 +30,46 @@ type NavItem = {
   roles: AppRole[];
 };
 
-const NAV: NavItem[] = [
-  { label: "Dashboard", to: "/", icon: LayoutDashboard, roles: ["administrador", "master", "gerente", "analista", "operador"] },
-  { label: "Vendas Ucase", to: "/vendas", icon: Receipt, roles: ["administrador", "gerente", "analista", "operador"] },
-  { label: "Detalhamento Ucase", to: "/detalhamento", icon: Receipt, roles: ["administrador", "master", "gerente", "analista", "operador"] },
-  { label: "Extrato Bancário", to: "/extrato", icon: FileUp, roles: ["administrador", "gerente", "analista", "operador"] },
-  { label: "Conciliação", to: "/conciliacao", icon: GitCompareArrows, roles: ["administrador", "master", "gerente", "analista", "operador"] },
-  { label: "Alertas", to: "/alertas", icon: Bell, roles: ["administrador", "master", "gerente", "analista", "operador"] },
-  { label: "Financeiras", to: "/financeiras", icon: Landmark, roles: ["administrador"] },
-  { label: "Lojas", to: "/lojas", icon: Building2, roles: ["administrador"] },
-  { label: "Contas Bancárias", to: "/contas", icon: Wallet, roles: ["administrador", "gerente"] },
-  { label: "Usuários", to: "/usuarios", icon: Users, roles: ["administrador", "gerente"] },
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const DASHBOARD: NavItem = {
+  label: "Dashboard",
+  to: "/",
+  icon: LayoutDashboard,
+  roles: ["administrador", "master", "gerente", "analista", "operador"],
+};
+
+const GROUPS: NavGroup[] = [
+  {
+    label: "Ucase",
+    items: [
+      { label: "Vendas", to: "/vendas", icon: Receipt, roles: ["administrador", "gerente", "analista", "operador"] },
+      { label: "Detalhamento", to: "/detalhamento", icon: BarChart3, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+    ],
+  },
+  {
+    label: "Movimentação Bancária",
+    items: [
+      { label: "Extrato Bancário", to: "/extrato", icon: FileUp, roles: ["administrador", "gerente", "analista", "operador"] },
+      { label: "Conciliação Bancária", to: "/conciliacao", icon: GitCompareArrows, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+      { label: "Extrato Financeiro", to: "/extrato-financeiro", icon: ListTree, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+    ],
+  },
+  {
+    label: "Configurações",
+    items: [
+      { label: "Financeiras", to: "/financeiras", icon: Landmark, roles: ["administrador"] },
+      { label: "Lojas", to: "/lojas", icon: Building2, roles: ["administrador"] },
+      { label: "Contas Bancárias", to: "/contas", icon: Wallet, roles: ["administrador", "gerente"] },
+      { label: "Categorias (DRE)", to: "/categorias", icon: Tags, roles: ["administrador"] },
+      { label: "Usuários", to: "/usuarios", icon: Users, roles: ["administrador", "gerente"] },
+    ],
+  },
 ];
+
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -62,13 +93,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  const items = NAV.filter((i) => i.roles.includes(profile.role));
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Sidebar (desktop) */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border bg-sidebar lg:flex lg:flex-col">
-        <SidebarBody items={items} currentPath={location.pathname} />
+        <SidebarBody role={profile.role} currentPath={location.pathname} />
       </aside>
 
       {/* Sidebar (mobile) */}
@@ -80,7 +109,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           />
           <aside className="absolute inset-y-0 left-0 flex w-64 flex-col border-r border-sidebar-border bg-sidebar">
             <SidebarBody
-              items={items}
+              role={profile.role}
               currentPath={location.pathname}
               onNavigate={() => setOpen(false)}
             />
@@ -149,57 +178,126 @@ export function AppLayout({ children }: { children: ReactNode }) {
 }
 
 function SidebarBody({
-  items,
+  role,
   currentPath,
   onNavigate,
 }: {
-  items: NavItem[];
+  role: AppRole;
   currentPath: string;
   onNavigate?: () => void;
 }) {
+  const visibleGroups = useMemo(
+    () =>
+      GROUPS.map((g) => ({
+        label: g.label,
+        items: g.items.filter((i) => i.roles.includes(role)),
+      })).filter((g) => g.items.length > 0),
+    [role],
+  );
+
+  const showDashboard = DASHBOARD.roles.includes(role);
+
   return (
     <>
       <div className="flex h-16 items-center border-b border-sidebar-border px-4">
         <Connect7Logo />
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-        {items.map((item) => {
-          const active =
-            item.to === "/" ? currentPath === "/" : currentPath.startsWith(item.to);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.to}
-              to={item.to}
-              onClick={onNavigate}
-              className={`group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-              }`}
-            >
-              <Icon
-                className={`h-4 w-4 ${active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`}
-              />
-              {item.label}
-              {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
+        {showDashboard && (
+          <SidebarLink item={DASHBOARD} currentPath={currentPath} onNavigate={onNavigate} />
+        )}
+        {visibleGroups.map((g) => (
+          <SidebarGroup
+            key={g.label}
+            label={g.label}
+            items={g.items}
+            currentPath={currentPath}
+            onNavigate={onNavigate}
+          />
+        ))}
       </nav>
 
       <div className="border-t border-sidebar-border p-3">
-        <div className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/70">
-          <Settings className="h-4 w-4 text-muted-foreground" />
-          Configurações
-        </div>
         <div className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/70">
           <LifeBuoy className="h-4 w-4 text-muted-foreground" />
           Suporte
         </div>
       </div>
     </>
+  );
+}
+
+function SidebarGroup({
+  label,
+  items,
+  currentPath,
+  onNavigate,
+}: {
+  label: string;
+  items: NavItem[];
+  currentPath: string;
+  onNavigate?: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/60 hover:text-sidebar-foreground"
+      >
+        {open ? (
+          <ChevronDown className="h-3 w-3" />
+        ) : (
+          <ChevronRight className="h-3 w-3" />
+        )}
+        {label}
+      </button>
+      {open && (
+        <div className="mt-0.5 space-y-0.5">
+          {items.map((item) => (
+            <SidebarLink
+              key={item.to}
+              item={item}
+              currentPath={currentPath}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SidebarLink({
+  item,
+  currentPath,
+  onNavigate,
+}: {
+  item: NavItem;
+  currentPath: string;
+  onNavigate?: () => void;
+}) {
+  const active =
+    item.to === "/" ? currentPath === "/" : currentPath.startsWith(item.to);
+  const Icon = item.icon;
+  return (
+    <Link
+      to={item.to}
+      onClick={onNavigate}
+      className={`group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+        active
+          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+          : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+      }`}
+    >
+      <Icon
+        className={`h-4 w-4 ${active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`}
+      />
+      {item.label}
+      {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
+    </Link>
   );
 }
 

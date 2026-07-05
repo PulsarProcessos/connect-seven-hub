@@ -42,16 +42,18 @@ const ROLE_ROUTES: Record<AppRole, string[]> = {
     "/detalhamento",
     "/extrato",
     "/conciliacao",
+    "/extrato-financeiro",
     "/alertas",
     "/financeiras",
     "/lojas",
     "/contas",
+    "/categorias",
     "/usuarios",
   ],
-  master: ["/", "/detalhamento", "/conciliacao", "/alertas"],
-  gerente: ["/", "/vendas", "/detalhamento", "/extrato", "/conciliacao", "/alertas", "/contas", "/usuarios"],
-  analista: ["/", "/vendas", "/detalhamento", "/extrato", "/conciliacao", "/alertas"],
-  operador: ["/", "/vendas", "/detalhamento", "/extrato", "/conciliacao", "/alertas"],
+  master: ["/", "/detalhamento", "/conciliacao", "/extrato-financeiro", "/alertas"],
+  gerente: ["/", "/vendas", "/detalhamento", "/extrato", "/conciliacao", "/extrato-financeiro", "/alertas", "/contas", "/usuarios"],
+  analista: ["/", "/vendas", "/detalhamento", "/extrato", "/conciliacao", "/extrato-financeiro", "/alertas"],
+  operador: ["/", "/vendas", "/detalhamento", "/extrato", "/conciliacao", "/extrato-financeiro", "/alertas"],
 };
 
 export function isPathAllowed(role: AppRole, pathname: string): boolean {
