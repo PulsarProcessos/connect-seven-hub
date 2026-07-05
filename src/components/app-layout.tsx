@@ -10,7 +10,7 @@ import {
   Users,
   Landmark,
   Wallet,
-  Settings,
+  LifeBuoy,
   LifeBuoy,
   LogOut,
   Menu,
