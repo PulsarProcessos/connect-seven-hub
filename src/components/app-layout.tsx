@@ -94,13 +94,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  const items = NAV.filter((i) => i.roles.includes(profile.role));
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Sidebar (desktop) */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border bg-sidebar lg:flex lg:flex-col">
-        <SidebarBody items={items} currentPath={location.pathname} />
+        <SidebarBody role={profile.role} currentPath={location.pathname} />
       </aside>
 
       {/* Sidebar (mobile) */}
@@ -112,7 +110,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           />
           <aside className="absolute inset-y-0 left-0 flex w-64 flex-col border-r border-sidebar-border bg-sidebar">
             <SidebarBody
-              items={items}
+              role={profile.role}
               currentPath={location.pathname}
               onNavigate={() => setOpen(false)}
             />
