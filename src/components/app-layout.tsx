@@ -11,7 +11,6 @@ import {
   Landmark,
   Wallet,
   LifeBuoy,
-  LifeBuoy,
   LogOut,
   Menu,
   ChevronDown,
