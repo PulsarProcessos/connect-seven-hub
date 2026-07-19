@@ -81,6 +81,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "conciliacao_extrato_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "conciliacao_extrato_id_venda_ucase_fkey"
             columns: ["id_venda_ucase"]
             isOneToOne: false
@@ -123,6 +130,13 @@ export type Database = {
             columns: ["id_loja"]
             isOneToOne: false
             referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_bancarias_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
             referencedColumns: ["id"]
           },
         ]
@@ -248,6 +262,13 @@ export type Database = {
             referencedRelation: "lojas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "extrato_lancamentos_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
         ]
       }
       feriados: {
@@ -339,6 +360,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "importacoes_extrato_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "importacoes_extrato_importado_por_fkey"
             columns: ["importado_por"]
             isOneToOne: false
@@ -381,6 +409,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "importacoes_ucase_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "importacoes_ucase_importado_por_fkey"
             columns: ["importado_por"]
             isOneToOne: false
@@ -395,26 +430,40 @@ export type Database = {
           cnpj: string
           created_at: string
           id: string
+          id_tipo_loja: string | null
           nome_fantasia: string
-          tipo: string
+          razao_social: string
+          tipo_socio: Database["public"]["Enums"]["tipo_socio"]
         }
         Insert: {
           ativa?: boolean
           cnpj: string
           created_at?: string
           id?: string
+          id_tipo_loja?: string | null
           nome_fantasia: string
-          tipo?: string
+          razao_social: string
+          tipo_socio?: Database["public"]["Enums"]["tipo_socio"]
         }
         Update: {
           ativa?: boolean
           cnpj?: string
           created_at?: string
           id?: string
+          id_tipo_loja?: string | null
           nome_fantasia?: string
-          tipo?: string
+          razao_social?: string
+          tipo_socio?: Database["public"]["Enums"]["tipo_socio"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lojas_id_tipo_loja_fkey"
+            columns: ["id_tipo_loja"]
+            isOneToOne: false
+            referencedRelation: "tipos_loja"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       movimentacoes: {
         Row: {
@@ -505,7 +554,38 @@ export type Database = {
             referencedRelation: "lojas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "movimentacoes_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      tipos_loja: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          nome: string
+          ordem: number
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          ordem?: number
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          ordem?: number
+        }
+        Relationships: []
       }
       usuarios_perfis: {
         Row: {
@@ -541,6 +621,13 @@ export type Database = {
             columns: ["id_loja"]
             isOneToOne: false
             referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usuarios_perfis_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
             referencedColumns: ["id"]
           },
         ]
@@ -607,6 +694,13 @@ export type Database = {
             referencedRelation: "lojas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "vendas_ucase_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -632,6 +726,29 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_lojas: {
+        Row: {
+          ativa: boolean | null
+          cnpj: string | null
+          created_at: string | null
+          id: string | null
+          id_tipo_loja: string | null
+          nome_fantasia: string | null
+          razao_social: string | null
+          tipo_loja: string | null
+          tipo_socio: Database["public"]["Enums"]["tipo_socio"] | null
+          tipo_socio_label: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lojas_id_tipo_loja_fkey"
+            columns: ["id_tipo_loja"]
+            isOneToOne: false
+            referencedRelation: "tipos_loja"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       add_dias_uteis: {
@@ -654,6 +771,7 @@ export type Database = {
       natureza_dre: "receita" | "despesa"
       status_conciliacao: "pendente" | "conciliado" | "atrasado"
       tipo_movimentacao: "venda" | "despesa" | "transferencia"
+      tipo_socio: "propria" | "franqueado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -785,6 +903,7 @@ export const Constants = {
       natureza_dre: ["receita", "despesa"],
       status_conciliacao: ["pendente", "conciliado", "atrasado"],
       tipo_movimentacao: ["venda", "despesa", "transferencia"],
+      tipo_socio: ["propria", "franqueado"],
     },
   },
 } as const
