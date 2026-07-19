@@ -109,7 +109,7 @@ function FinanceirasPage() {
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead className="text-right">Taxa padrão (%)</TableHead>
-              <TableHead className="text-right">Prazo (dias)</TableHead>
+              <TableHead className="text-right">Prazo (dias úteis)</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-24 text-right">Ações</TableHead>
             </TableRow>
@@ -187,16 +187,31 @@ function FinanceiraDialog({
   onSaved: () => void;
 }) {
   const [nome, setNome] = useState("");
-  const [taxa, setTaxa] = useState("0,000");
+  const [taxa, setTaxa] = useState("");
   const [prazo, setPrazo] = useState("30");
   const [ativa, setAtiva] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const formatTaxa = (raw: string) => {
+    const digits = raw.replace(/\D/g, "").slice(0, 6);
+    if (!digits) return "";
+    const n = Number(digits) / 1000;
+    return n.toLocaleString("pt-BR", {
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
+    });
+  };
 
   useEffect(() => {
     if (!open) return;
     if (editing) {
       setNome(editing.nome);
-      setTaxa(Number(editing.taxa_padrao).toFixed(3).replace(".", ","));
+      setTaxa(
+        Number(editing.taxa_padrao).toLocaleString("pt-BR", {
+          minimumFractionDigits: 3,
+          maximumFractionDigits: 3,
+        }),
+      );
       setPrazo(String(editing.prazo_recebimento_dias));
       setAtiva(editing.ativa);
     } else {
