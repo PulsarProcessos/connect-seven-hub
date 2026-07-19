@@ -109,7 +109,7 @@ function FinanceirasPage() {
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead className="text-right">Taxa padrão (%)</TableHead>
-              <TableHead className="text-right">Prazo (dias)</TableHead>
+              <TableHead className="text-right">Prazo (dias úteis)</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-24 text-right">Ações</TableHead>
             </TableRow>
@@ -187,21 +187,36 @@ function FinanceiraDialog({
   onSaved: () => void;
 }) {
   const [nome, setNome] = useState("");
-  const [taxa, setTaxa] = useState("0,000");
+  const [taxa, setTaxa] = useState("");
   const [prazo, setPrazo] = useState("30");
   const [ativa, setAtiva] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const formatTaxa = (raw: string) => {
+    const digits = raw.replace(/\D/g, "").slice(0, 6);
+    if (!digits) return "";
+    const n = Number(digits) / 1000;
+    return n.toLocaleString("pt-BR", {
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
+    });
+  };
 
   useEffect(() => {
     if (!open) return;
     if (editing) {
       setNome(editing.nome);
-      setTaxa(Number(editing.taxa_padrao).toFixed(3).replace(".", ","));
+      setTaxa(
+        Number(editing.taxa_padrao).toLocaleString("pt-BR", {
+          minimumFractionDigits: 3,
+          maximumFractionDigits: 3,
+        }),
+      );
       setPrazo(String(editing.prazo_recebimento_dias));
       setAtiva(editing.ativa);
     } else {
       setNome("");
-      setTaxa("0,000");
+      setTaxa("");
       setPrazo("30");
       setAtiva(true);
     }
@@ -209,7 +224,7 @@ function FinanceiraDialog({
 
   const submit = async () => {
     if (!nome.trim()) return toast.error("Informe o nome");
-    const taxaNum = Number(taxa.replace(",", "."));
+    const taxaNum = Number(taxa.replace(/\./g, "").replace(",", "."));
     const prazoNum = Number(prazo);
     if (Number.isNaN(taxaNum) || taxaNum < 0) return toast.error("Taxa inválida");
     if (!Number.isInteger(prazoNum) || prazoNum < 0) return toast.error("Prazo inválido");
@@ -248,13 +263,13 @@ function FinanceiraDialog({
               <Label>Taxa padrão (%)</Label>
               <Input
                 value={taxa}
-                onChange={(e) => setTaxa(e.target.value)}
-                inputMode="decimal"
-                placeholder="2,990"
+                onChange={(e) => setTaxa(formatTaxa(e.target.value))}
+                inputMode="numeric"
+                placeholder="0,000"
               />
             </div>
             <div className="grid gap-2">
-              <Label>Prazo (dias)</Label>
+              <Label>Prazo (dias úteis)</Label>
               <Input
                 value={prazo}
                 onChange={(e) => setPrazo(e.target.value.replace(/\D/g, ""))}
