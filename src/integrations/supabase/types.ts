@@ -250,6 +250,24 @@ export type Database = {
           },
         ]
       }
+      feriados: {
+        Row: {
+          created_at: string
+          data: string
+          descricao: string
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          descricao: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          descricao?: string
+        }
+        Relationships: []
+      }
       financeiras: {
         Row: {
           ativa: boolean
@@ -616,6 +634,10 @@ export type Database = {
       }
     }
     Functions: {
+      add_dias_uteis: {
+        Args: { p_data: string; p_dias: number }
+        Returns: string
+      }
       can_access_loja: { Args: { p_loja: string }; Returns: boolean }
       current_loja: { Args: never; Returns: string }
       current_role: {
