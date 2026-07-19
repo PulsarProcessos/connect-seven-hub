@@ -216,7 +216,7 @@ function FinanceiraDialog({
       setAtiva(editing.ativa);
     } else {
       setNome("");
-      setTaxa("0,000");
+      setTaxa("");
       setPrazo("30");
       setAtiva(true);
     }
@@ -224,7 +224,7 @@ function FinanceiraDialog({
 
   const submit = async () => {
     if (!nome.trim()) return toast.error("Informe o nome");
-    const taxaNum = Number(taxa.replace(",", "."));
+    const taxaNum = Number(taxa.replace(/\./g, "").replace(",", "."));
     const prazoNum = Number(prazo);
     if (Number.isNaN(taxaNum) || taxaNum < 0) return toast.error("Taxa inválida");
     if (!Number.isInteger(prazoNum) || prazoNum < 0) return toast.error("Prazo inválido");
@@ -263,13 +263,13 @@ function FinanceiraDialog({
               <Label>Taxa padrão (%)</Label>
               <Input
                 value={taxa}
-                onChange={(e) => setTaxa(e.target.value)}
-                inputMode="decimal"
-                placeholder="2,990"
+                onChange={(e) => setTaxa(formatTaxa(e.target.value))}
+                inputMode="numeric"
+                placeholder="0,000"
               />
             </div>
             <div className="grid gap-2">
-              <Label>Prazo (dias)</Label>
+              <Label>Prazo (dias úteis)</Label>
               <Input
                 value={prazo}
                 onChange={(e) => setPrazo(e.target.value.replace(/\D/g, ""))}
