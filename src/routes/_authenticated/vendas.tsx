@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
-import { Upload, X, FileSpreadsheet } from "lucide-react";
+import { Upload, X, FileSpreadsheet, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
@@ -47,12 +47,26 @@ type Financeira = {
 
 type Loja = { id: string; nome_fantasia: string };
 
+type Cartao = {
+  id: string;
+  nome: string;
+  taxa_padrao: number;
+  prazo_recebimento_dias: number;
+  ativa: boolean;
+};
+
+type MeioPagamento = "cartao" | "financeira" | "a_vista";
+
 type Row = {
   selected: boolean;
   data_venda: string; // yyyy-mm-dd
+  meio_pagamento: MeioPagamento;
   id_financeira: string | null;
+  id_cartao: string | null;
   valor_bruto: number;
   originalFinanceira?: string;
+  numero_venda?: string | null;
+  qtde_parcelas?: number | null;
 };
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -78,8 +92,22 @@ function normalize(s: string): string {
 }
 
 const DATA_KEYS = ["data", "data venda", "data da venda", "dt venda", "dt", "date"];
-const FIN_KEYS = ["financeira", "bandeira", "adquirente", "operadora", "credenciadora"];
+const FIN_KEYS = [
+  "forma pgto",
+  "forma pagamento",
+  "forma de pagamento",
+  "financeira",
+  "bandeira",
+  "adquirente",
+  "operadora",
+  "credenciadora",
+];
+// IMPORTANTE: "valor pgto" vem antes de "total" — numa venda dividida em várias
+// formas de pagamento, a coluna TOTAL repete o valor cheio em cada linha e
+// inflaria o faturamento. O valor correto da linha é o do pagamento.
 const VAL_KEYS = [
+  "valor pgto",
+  "valor pagamento",
   "valor bruto",
   "vlr bruto",
   "bruto",
@@ -89,18 +117,40 @@ const VAL_KEYS = [
   "total",
   "vl bruto",
 ];
+const VENDA_KEYS = ["venda", "n venda", "numero venda", "nº venda", "pedido", "cupom"];
+const PARC_KEYS = ["qtde. parcelas", "qtde parcelas", "parcelas", "qtd parcelas"];
+
+// Formas de pagamento à vista: recebidas na hora, sem taxa nem previsão.
+const A_VISTA_KEYS = ["dinheiro", "pix", "vale", "especie", "espécie"];
+
+function isAVista(forma: string): boolean {
+  const n = normalize(forma);
+  return A_VISTA_KEYS.some((k) => n.includes(normalize(k)));
+}
+
+// "CARTÃO (MASTERCARD)" → "MASTERCARD" ; usado para casar com a tabela cartoes
+function extrairBandeira(forma: string): string | null {
+  const n = normalize(forma);
+  if (!n.includes("cartao") && !n.includes("credito") && !n.includes("debito")) return null;
+  const m = forma.match(/\(([^)]+)\)/);
+  return m ? m[1].trim() : forma.trim();
+}
 
 function detectColumns(headers: string[]) {
   const norm = headers.map((h) => normalize(h));
   const find = (keys: string[]) => {
-    // exact match first
+    // 1) match exato, respeitando a ordem de prioridade das chaves
     for (const k of keys) {
-      const i = norm.indexOf(k);
+      const i = norm.indexOf(normalize(k));
       if (i >= 0) return i;
     }
-    // contains
-    for (let i = 0; i < norm.length; i++) {
-      if (keys.some((k) => norm[i].includes(k))) return i;
+    // 2) match parcial — percorre por PRIORIDADE DE CHAVE, não por posição da
+    //    coluna. Sem isso, "TOTAL R$" (coluna anterior) venceria
+    //    "VALOR PGTO R$", que é o valor correto da linha.
+    for (const k of keys) {
+      const kn = normalize(k);
+      const i = norm.findIndex((h) => h.includes(kn));
+      if (i >= 0) return i;
     }
     return -1;
   };
@@ -108,6 +158,8 @@ function detectColumns(headers: string[]) {
     data: find(DATA_KEYS),
     financeira: find(FIN_KEYS),
     valor: find(VAL_KEYS),
+    venda: find(VENDA_KEYS),
+    parcelas: find(PARC_KEYS),
   };
 }
 
@@ -156,20 +208,24 @@ function addDays(iso: string, days: number): string {
   return dt.toISOString().slice(0, 10);
 }
 
-function matchFinanceira(name: string, finList: Financeira[]): string | null {
-  const n = normalize(name);
+function matchByNome<T extends { id: string; nome: string }>(
+  raw: string,
+  list: T[],
+): string | null {
+  const n = normalize(raw);
   if (!n) return null;
-  const exact = finList.find((f) => normalize(f.nome) === n);
+  const exact = list.find((f) => normalize(f.nome) === n);
   if (exact) return exact.id;
-  const contains = finList.find(
+  const contains = list.find(
     (f) => normalize(f.nome).includes(n) || n.includes(normalize(f.nome)),
   );
   return contains?.id ?? null;
 }
 
 function ImportarVendasPage() {
-  const { profile } = useAuth();
+  const { profile, selectedLojaId } = useAuth();
   const [financeiras, setFinanceiras] = useState<Financeira[]>([]);
+  const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [targetLoja, setTargetLoja] = useState<string>("");
   const [fileName, setFileName] = useState<string>("");
@@ -187,25 +243,43 @@ function ImportarVendasPage() {
 
   useEffect(() => {
     (async () => {
-      const [{ data: fins }, { data: lj }] = await Promise.all([
+      const [{ data: fins }, { data: cds }, { data: lj }] = await Promise.all([
         supabase
           .from("financeiras")
+          .select("id, nome, taxa_padrao, prazo_recebimento_dias, ativa")
+          .eq("ativa", true)
+          .order("nome"),
+        supabase
+          .from("cartoes")
           .select("id, nome, taxa_padrao, prazo_recebimento_dias, ativa")
           .eq("ativa", true)
           .order("nome"),
         supabase.from("lojas").select("id, nome_fantasia").eq("ativa", true).order("nome_fantasia"),
       ]);
       setFinanceiras((fins ?? []) as Financeira[]);
+      setCartoes((cds ?? []) as Cartao[]);
       setLojas((lj ?? []) as Loja[]);
       if (!isAdmin && profile?.id_loja) setTargetLoja(profile.id_loja);
     })();
   }, [profile?.id_loja, isAdmin]);
 
-  const buildRows = (data: unknown[][], headers: string[], fins: Financeira[]) => {
+  // O seletor do topo manda: ao escolher uma unidade lá (ou clicar num bloco
+  // da Visão Geral), esta tela passa a importar para aquela loja.
+  // Em "Todas as unidades" o destino fica em aberto, e a tela pede a escolha.
+  useEffect(() => {
+    if (isAdmin) setTargetLoja(selectedLojaId ?? "");
+  }, [selectedLojaId, isAdmin]);
+
+  const buildRows = (
+    data: unknown[][],
+    headers: string[],
+    fins: Financeira[],
+    cds: Cartao[],
+  ) => {
     const cols = detectColumns(headers);
     if (cols.data < 0 || cols.financeira < 0 || cols.valor < 0) {
       toast.error(
-        "Não foi possível identificar todas as colunas. Verifique cabeçalhos: data, financeira/bandeira, valor bruto.",
+        "Não foi possível identificar todas as colunas. Verifique cabeçalhos: data, forma de pagamento e valor.",
       );
       return [];
     }
@@ -216,12 +290,42 @@ function ImportarVendasPage() {
       const val = parseValorCell(raw[cols.valor]);
       const finRaw = raw[cols.financeira] == null ? "" : String(raw[cols.financeira]);
       if (!dataStr || !Number.isFinite(val)) continue;
+
+      // Classifica o meio de pagamento a partir do texto da planilha
+      let meio: MeioPagamento;
+      let idFin: string | null = null;
+      let idCartao: string | null = null;
+
+      if (isAVista(finRaw)) {
+        meio = "a_vista";
+      } else {
+        const bandeira = extrairBandeira(finRaw);
+        if (bandeira) {
+          meio = "cartao";
+          idCartao = matchByNome(bandeira, cds);
+        } else {
+          meio = "financeira";
+          idFin = matchByNome(finRaw, fins);
+        }
+      }
+
+      const numVenda =
+        cols.venda >= 0 && raw[cols.venda] != null ? String(raw[cols.venda]).trim() : null;
+      const parc =
+        cols.parcelas >= 0 && raw[cols.parcelas] != null
+          ? Number(String(raw[cols.parcelas]).replace(/\D/g, "")) || null
+          : null;
+
       built.push({
         selected: true,
         data_venda: dataStr,
-        id_financeira: matchFinanceira(finRaw, fins),
+        meio_pagamento: meio,
+        id_financeira: idFin,
+        id_cartao: idCartao,
         valor_bruto: Math.round(val * 100) / 100,
         originalFinanceira: finRaw,
+        numero_venda: numVenda,
+        qtde_parcelas: parc,
       });
     }
     return built;
@@ -239,7 +343,7 @@ function ImportarVendasPage() {
             const arr = res.data as string[][];
             if (arr.length < 2) return toast.error("Arquivo vazio");
             const headers = arr[0].map((h) => String(h ?? ""));
-            const built = buildRows(arr.slice(1), headers, financeiras);
+            const built = buildRows(arr.slice(1), headers, financeiras, cartoes);
             setRows(built);
             if (built.length) toast.success(`${built.length} linha(s) lida(s)`);
           },
@@ -256,7 +360,7 @@ function ImportarVendasPage() {
         });
         if (arr.length < 2) return toast.error("Arquivo vazio");
         const headers = (arr[0] as unknown[]).map((h) => String(h ?? ""));
-        const built = buildRows(arr.slice(1) as unknown[][], headers, financeiras);
+        const built = buildRows(arr.slice(1) as unknown[][], headers, financeiras, cartoes);
         setRows(built);
         if (built.length) toast.success(`${built.length} linha(s) lida(s)`);
       } else {
@@ -286,8 +390,15 @@ function ImportarVendasPage() {
     if (!loja) return toast.error("Selecione a loja-alvo");
     const toImport = rows.filter((r) => r.selected);
     if (toImport.length === 0) return toast.error("Selecione ao menos uma linha");
-    if (toImport.some((r) => !r.id_financeira))
-      return toast.error("Todas as linhas selecionadas precisam de financeira");
+    const semRef = toImport.filter(
+      (r) =>
+        (r.meio_pagamento === "financeira" && !r.id_financeira) ||
+        (r.meio_pagamento === "cartao" && !r.id_cartao),
+    );
+    if (semRef.length > 0)
+      return toast.error(
+        `${semRef.length} linha(s) sem financeira/cartão definido. Ajuste antes de importar.`,
+      );
 
     setImporting(true);
     setProgress(0);
@@ -314,7 +425,12 @@ function ImportarVendasPage() {
     for (let i = 0; i < toImport.length; i += BATCH) {
       const slice = toImport.slice(i, i + BATCH).map((r) => ({
         id_loja: loja,
-        id_financeira: r.id_financeira!,
+        meio_pagamento: r.meio_pagamento,
+        id_financeira: r.meio_pagamento === "financeira" ? r.id_financeira : null,
+        id_cartao: r.meio_pagamento === "cartao" ? r.id_cartao : null,
+        forma_pagamento_origem: r.originalFinanceira ?? null,
+        numero_venda: r.numero_venda ?? null,
+        qtde_parcelas: r.qtde_parcelas ?? null,
         id_importacao: imp.id,
         data_venda: r.data_venda,
         valor_bruto: r.valor_bruto,
@@ -354,23 +470,41 @@ function ImportarVendasPage() {
         </div>
       </div>
 
-      {isAdmin && (
-        <div className="mt-6 grid gap-2 max-w-md">
-          <Label>Loja-alvo</Label>
-          <Select value={targetLoja} onValueChange={setTargetLoja}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione a loja" />
-            </SelectTrigger>
-            <SelectContent>
-              {lojas.map((l) => (
-                <SelectItem key={l.id} value={l.id}>
-                  {l.nome_fantasia}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+      {isAdmin &&
+        (selectedLojaId ? (
+          <div className="mt-6 flex max-w-md items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
+            <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0">
+              <div className="text-xs text-muted-foreground">Importando para</div>
+              <div className="truncate text-sm font-medium">
+                {lojas.find((l) => l.id === selectedLojaId)?.nome_fantasia ?? "Unidade"}
+              </div>
+            </div>
+            <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+              troque no seletor do topo
+            </span>
+          </div>
+        ) : (
+          <div className="mt-6 grid max-w-md gap-2">
+            <Label>Loja de destino</Label>
+            <Select value={targetLoja} onValueChange={setTargetLoja}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a loja" />
+              </SelectTrigger>
+              <SelectContent>
+                {lojas.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.nome_fantasia}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Você está em “Todas as unidades”. A importação precisa de uma loja
+              específica — escolha aqui ou no seletor do topo.
+            </p>
+          </div>
+        ))}
 
       <div
         onDragOver={(e) => {
@@ -442,7 +576,7 @@ function ImportarVendasPage() {
                       />
                     </TableHead>
                     <TableHead>Data</TableHead>
-                    <TableHead>Financeira</TableHead>
+                    <TableHead>Forma / Origem</TableHead>
                     <TableHead className="text-right">Valor bruto</TableHead>
                     <TableHead className="text-right">Líq. previsto</TableHead>
                     <TableHead>Prev. recebimento</TableHead>
@@ -450,15 +584,28 @@ function ImportarVendasPage() {
                 </TableHeader>
                 <TableBody>
                   {rows.map((r, i) => {
-                    const fin = r.id_financeira ? finById[r.id_financeira] : null;
-                    const liq = fin
-                      ? Math.round(
-                          (r.valor_bruto - (r.valor_bruto * Number(fin.taxa_padrao)) / 100) * 100,
-                        ) / 100
-                      : NaN;
-                    const prev = fin ? addDays(r.data_venda, fin.prazo_recebimento_dias) : "";
+                    const aVista = r.meio_pagamento === "a_vista";
+                    const isCartao = r.meio_pagamento === "cartao";
+                    const ref = isCartao
+                      ? cartoes.find((c) => c.id === r.id_cartao)
+                      : r.id_financeira
+                        ? finById[r.id_financeira]
+                        : null;
+                    const pendente = !aVista && !ref;
+                    const liq = aVista
+                      ? r.valor_bruto
+                      : ref
+                        ? Math.round(
+                            (r.valor_bruto - (r.valor_bruto * Number(ref.taxa_padrao)) / 100) * 100,
+                          ) / 100
+                        : NaN;
+                    const prev = aVista
+                      ? r.data_venda
+                      : ref
+                        ? addDays(r.data_venda, ref.prazo_recebimento_dias)
+                        : "";
                     return (
-                      <TableRow key={i} className={!r.id_financeira ? "bg-amber-50/40" : ""}>
+                      <TableRow key={i} className={pendente ? "bg-amber-50/40" : ""}>
                         <TableCell>
                           <Checkbox
                             checked={r.selected}
@@ -467,27 +614,51 @@ function ImportarVendasPage() {
                         </TableCell>
                         <TableCell className="font-mono text-xs">{formatBRDate(r.data_venda)}</TableCell>
                         <TableCell>
-                          <Select
-                            value={r.id_financeira ?? ""}
-                            onValueChange={(v) => updateRow(i, { id_financeira: v })}
-                          >
-                            <SelectTrigger className="h-8 min-w-[180px]">
-                              <SelectValue
-                                placeholder={
-                                  r.originalFinanceira
-                                    ? `? ${r.originalFinanceira}`
-                                    : "Selecione"
+                          {aVista ? (
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                                À vista
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {r.originalFinanceira}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                  isCartao
+                                    ? "bg-sky-100 text-sky-700"
+                                    : "bg-primary/10 text-primary"
+                                }`}
+                              >
+                                {isCartao ? "Cartão" : "Financeira"}
+                              </span>
+                              <Select
+                                value={(isCartao ? r.id_cartao : r.id_financeira) ?? ""}
+                                onValueChange={(v) =>
+                                  updateRow(i, isCartao ? { id_cartao: v } : { id_financeira: v })
                                 }
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {financeiras.map((f) => (
-                                <SelectItem key={f.id} value={f.id}>
-                                  {f.nome}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                              >
+                                <SelectTrigger className="h-8 min-w-[170px]">
+                                  <SelectValue
+                                    placeholder={
+                                      r.originalFinanceira
+                                        ? `? ${r.originalFinanceira}`
+                                        : "Selecione"
+                                    }
+                                  />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {(isCartao ? cartoes : financeiras).map((f) => (
+                                    <SelectItem key={f.id} value={f.id}>
+                                      {f.nome}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {formatBRL(r.valor_bruto)}

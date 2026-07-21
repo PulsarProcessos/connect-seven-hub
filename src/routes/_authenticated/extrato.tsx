@@ -102,6 +102,12 @@ function ImportarExtratoPage() {
 
   const lojaId = isAdmin ? (targetLoja || selectedLojaId || "") : (profile?.id_loja ?? "");
 
+  // O seletor do topo é a fonte da verdade: ao trocar de unidade lá,
+  // esta tela acompanha.
+  useEffect(() => {
+    if (isAdmin) setTargetLoja(selectedLojaId ?? "");
+  }, [selectedLojaId, isAdmin]);
+
   useEffect(() => {
     (async () => {
       if (isAdmin) {
@@ -264,7 +270,7 @@ function ImportarExtratoPage() {
         </div>
 
         {aba === "conciliar" ? (
-          <ConciliacaoPanel lojaId={targetLoja || profile?.id_loja || ""} />
+          <ConciliacaoPanel lojaId={lojaId} />
         ) : (
         <>
         <div className="rounded-lg border bg-card p-5">
@@ -272,14 +278,31 @@ function ImportarExtratoPage() {
             {isAdmin && (
               <div className="space-y-2">
                 <Label>Loja</Label>
-                <Select value={targetLoja} onValueChange={setTargetLoja}>
-                  <SelectTrigger><SelectValue placeholder="Selecione a loja" /></SelectTrigger>
-                  <SelectContent>
-                    {lojas.map((l) => (
-                      <SelectItem key={l.id} value={l.id}>{l.nome_fantasia}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {selectedLojaId ? (
+                  <div className="flex h-10 items-center gap-2 rounded-md border border-border bg-muted/30 px-3">
+                    <span className="truncate text-sm font-medium">
+                      {lojas.find((l) => l.id === selectedLojaId)?.nome_fantasia ??
+                        "Unidade"}
+                    </span>
+                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                      via seletor do topo
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <Select value={targetLoja} onValueChange={setTargetLoja}>
+                      <SelectTrigger><SelectValue placeholder="Selecione a loja" /></SelectTrigger>
+                      <SelectContent>
+                        {lojas.map((l) => (
+                          <SelectItem key={l.id} value={l.id}>{l.nome_fantasia}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Em “Todas as unidades” — escolha a loja do extrato.
+                    </p>
+                  </>
+                )}
               </div>
             )}
             <div className="space-y-2">
