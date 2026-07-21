@@ -19,9 +19,14 @@ import { Route as AuthenticatedFinanceirasRouteImport } from './routes/_authenti
 import { Route as AuthenticatedExtratoFinanceiroRouteImport } from './routes/_authenticated/extrato-financeiro'
 import { Route as AuthenticatedExtratoRouteImport } from './routes/_authenticated/extrato'
 import { Route as AuthenticatedDetalhamentoRouteImport } from './routes/_authenticated/detalhamento'
+import { Route as AuthenticatedDashboardVendasRouteImport } from './routes/_authenticated/dashboard-vendas'
+import { Route as AuthenticatedDashboardFinanceiroRouteImport } from './routes/_authenticated/dashboard-financeiro'
+import { Route as AuthenticatedContasPagarRouteImport } from './routes/_authenticated/contas-pagar'
 import { Route as AuthenticatedContasRouteImport } from './routes/_authenticated/contas'
 import { Route as AuthenticatedConciliacaoRouteImport } from './routes/_authenticated/conciliacao'
+import { Route as AuthenticatedComissoesRouteImport } from './routes/_authenticated/comissoes'
 import { Route as AuthenticatedCategoriasRouteImport } from './routes/_authenticated/categorias'
+import { Route as AuthenticatedCartoesRouteImport } from './routes/_authenticated/cartoes'
 import { Route as AuthenticatedAlertasRouteImport } from './routes/_authenticated/alertas'
 
 const AuthRoute = AuthRouteImport.update({
@@ -76,6 +81,24 @@ const AuthenticatedDetalhamentoRoute =
     path: '/detalhamento',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDashboardVendasRoute =
+  AuthenticatedDashboardVendasRouteImport.update({
+    id: '/dashboard-vendas',
+    path: '/dashboard-vendas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDashboardFinanceiroRoute =
+  AuthenticatedDashboardFinanceiroRouteImport.update({
+    id: '/dashboard-financeiro',
+    path: '/dashboard-financeiro',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedContasPagarRoute =
+  AuthenticatedContasPagarRouteImport.update({
+    id: '/contas-pagar',
+    path: '/contas-pagar',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedContasRoute = AuthenticatedContasRouteImport.update({
   id: '/contas',
   path: '/contas',
@@ -87,9 +110,19 @@ const AuthenticatedConciliacaoRoute =
     path: '/conciliacao',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedComissoesRoute = AuthenticatedComissoesRouteImport.update({
+  id: '/comissoes',
+  path: '/comissoes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedCategoriasRoute = AuthenticatedCategoriasRouteImport.update({
   id: '/categorias',
   path: '/categorias',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCartoesRoute = AuthenticatedCartoesRouteImport.update({
+  id: '/cartoes',
+  path: '/cartoes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAlertasRoute = AuthenticatedAlertasRouteImport.update({
@@ -102,9 +135,14 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/alertas': typeof AuthenticatedAlertasRoute
+  '/cartoes': typeof AuthenticatedCartoesRoute
   '/categorias': typeof AuthenticatedCategoriasRoute
+  '/comissoes': typeof AuthenticatedComissoesRoute
   '/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/contas': typeof AuthenticatedContasRoute
+  '/contas-pagar': typeof AuthenticatedContasPagarRoute
+  '/dashboard-financeiro': typeof AuthenticatedDashboardFinanceiroRoute
+  '/dashboard-vendas': typeof AuthenticatedDashboardVendasRoute
   '/detalhamento': typeof AuthenticatedDetalhamentoRoute
   '/extrato': typeof AuthenticatedExtratoRoute
   '/extrato-financeiro': typeof AuthenticatedExtratoFinanceiroRoute
@@ -116,9 +154,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/alertas': typeof AuthenticatedAlertasRoute
+  '/cartoes': typeof AuthenticatedCartoesRoute
   '/categorias': typeof AuthenticatedCategoriasRoute
+  '/comissoes': typeof AuthenticatedComissoesRoute
   '/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/contas': typeof AuthenticatedContasRoute
+  '/contas-pagar': typeof AuthenticatedContasPagarRoute
+  '/dashboard-financeiro': typeof AuthenticatedDashboardFinanceiroRoute
+  '/dashboard-vendas': typeof AuthenticatedDashboardVendasRoute
   '/detalhamento': typeof AuthenticatedDetalhamentoRoute
   '/extrato': typeof AuthenticatedExtratoRoute
   '/extrato-financeiro': typeof AuthenticatedExtratoFinanceiroRoute
@@ -133,9 +176,14 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/alertas': typeof AuthenticatedAlertasRoute
+  '/_authenticated/cartoes': typeof AuthenticatedCartoesRoute
   '/_authenticated/categorias': typeof AuthenticatedCategoriasRoute
+  '/_authenticated/comissoes': typeof AuthenticatedComissoesRoute
   '/_authenticated/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/_authenticated/contas': typeof AuthenticatedContasRoute
+  '/_authenticated/contas-pagar': typeof AuthenticatedContasPagarRoute
+  '/_authenticated/dashboard-financeiro': typeof AuthenticatedDashboardFinanceiroRoute
+  '/_authenticated/dashboard-vendas': typeof AuthenticatedDashboardVendasRoute
   '/_authenticated/detalhamento': typeof AuthenticatedDetalhamentoRoute
   '/_authenticated/extrato': typeof AuthenticatedExtratoRoute
   '/_authenticated/extrato-financeiro': typeof AuthenticatedExtratoFinanceiroRoute
@@ -151,9 +199,14 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/alertas'
+    | '/cartoes'
     | '/categorias'
+    | '/comissoes'
     | '/conciliacao'
     | '/contas'
+    | '/contas-pagar'
+    | '/dashboard-financeiro'
+    | '/dashboard-vendas'
     | '/detalhamento'
     | '/extrato'
     | '/extrato-financeiro'
@@ -165,9 +218,14 @@ export interface FileRouteTypes {
   to:
     | '/auth'
     | '/alertas'
+    | '/cartoes'
     | '/categorias'
+    | '/comissoes'
     | '/conciliacao'
     | '/contas'
+    | '/contas-pagar'
+    | '/dashboard-financeiro'
+    | '/dashboard-vendas'
     | '/detalhamento'
     | '/extrato'
     | '/extrato-financeiro'
@@ -181,9 +239,14 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/alertas'
+    | '/_authenticated/cartoes'
     | '/_authenticated/categorias'
+    | '/_authenticated/comissoes'
     | '/_authenticated/conciliacao'
     | '/_authenticated/contas'
+    | '/_authenticated/contas-pagar'
+    | '/_authenticated/dashboard-financeiro'
+    | '/_authenticated/dashboard-vendas'
     | '/_authenticated/detalhamento'
     | '/_authenticated/extrato'
     | '/_authenticated/extrato-financeiro'
@@ -271,6 +334,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDetalhamentoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dashboard-vendas': {
+      id: '/_authenticated/dashboard-vendas'
+      path: '/dashboard-vendas'
+      fullPath: '/dashboard-vendas'
+      preLoaderRoute: typeof AuthenticatedDashboardVendasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard-financeiro': {
+      id: '/_authenticated/dashboard-financeiro'
+      path: '/dashboard-financeiro'
+      fullPath: '/dashboard-financeiro'
+      preLoaderRoute: typeof AuthenticatedDashboardFinanceiroRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/contas-pagar': {
+      id: '/_authenticated/contas-pagar'
+      path: '/contas-pagar'
+      fullPath: '/contas-pagar'
+      preLoaderRoute: typeof AuthenticatedContasPagarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/contas': {
       id: '/_authenticated/contas'
       path: '/contas'
@@ -285,11 +369,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConciliacaoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/comissoes': {
+      id: '/_authenticated/comissoes'
+      path: '/comissoes'
+      fullPath: '/comissoes'
+      preLoaderRoute: typeof AuthenticatedComissoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/categorias': {
       id: '/_authenticated/categorias'
       path: '/categorias'
       fullPath: '/categorias'
       preLoaderRoute: typeof AuthenticatedCategoriasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/cartoes': {
+      id: '/_authenticated/cartoes'
+      path: '/cartoes'
+      fullPath: '/cartoes'
+      preLoaderRoute: typeof AuthenticatedCartoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/alertas': {
@@ -304,9 +402,14 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlertasRoute: typeof AuthenticatedAlertasRoute
+  AuthenticatedCartoesRoute: typeof AuthenticatedCartoesRoute
   AuthenticatedCategoriasRoute: typeof AuthenticatedCategoriasRoute
+  AuthenticatedComissoesRoute: typeof AuthenticatedComissoesRoute
   AuthenticatedConciliacaoRoute: typeof AuthenticatedConciliacaoRoute
   AuthenticatedContasRoute: typeof AuthenticatedContasRoute
+  AuthenticatedContasPagarRoute: typeof AuthenticatedContasPagarRoute
+  AuthenticatedDashboardFinanceiroRoute: typeof AuthenticatedDashboardFinanceiroRoute
+  AuthenticatedDashboardVendasRoute: typeof AuthenticatedDashboardVendasRoute
   AuthenticatedDetalhamentoRoute: typeof AuthenticatedDetalhamentoRoute
   AuthenticatedExtratoRoute: typeof AuthenticatedExtratoRoute
   AuthenticatedExtratoFinanceiroRoute: typeof AuthenticatedExtratoFinanceiroRoute
@@ -319,9 +422,14 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAlertasRoute: AuthenticatedAlertasRoute,
+  AuthenticatedCartoesRoute: AuthenticatedCartoesRoute,
   AuthenticatedCategoriasRoute: AuthenticatedCategoriasRoute,
+  AuthenticatedComissoesRoute: AuthenticatedComissoesRoute,
   AuthenticatedConciliacaoRoute: AuthenticatedConciliacaoRoute,
   AuthenticatedContasRoute: AuthenticatedContasRoute,
+  AuthenticatedContasPagarRoute: AuthenticatedContasPagarRoute,
+  AuthenticatedDashboardFinanceiroRoute: AuthenticatedDashboardFinanceiroRoute,
+  AuthenticatedDashboardVendasRoute: AuthenticatedDashboardVendasRoute,
   AuthenticatedDetalhamentoRoute: AuthenticatedDetalhamentoRoute,
   AuthenticatedExtratoRoute: AuthenticatedExtratoRoute,
   AuthenticatedExtratoFinanceiroRoute: AuthenticatedExtratoFinanceiroRoute,
