@@ -38,6 +38,16 @@ type NavGroup = {
   items: NavItem[];
 };
 
+/**
+ * Uma rota só está ativa se for exatamente a atual ou uma sub-rota dela.
+ * Sem a checagem da barra, "/extrato" acenderia junto com
+ * "/extrato-financeiro", e "/contas" junto com "/contas-pagar".
+ */
+function isRouteActive(currentPath: string, to: string): boolean {
+  if (to === "/") return currentPath === "/";
+  return currentPath === to || currentPath.startsWith(to + "/");
+}
+
 const DASHBOARD: NavItem = {
   label: "Visão Geral",
   to: "/",
@@ -216,7 +226,7 @@ function SidebarBody({
     for (const g of visibleGroups) {
       for (const item of g.items) {
         const matches =
-          item.to === "/" ? currentPath === "/" : currentPath.startsWith(item.to);
+          isRouteActive(currentPath, item.to);
         if (matches && (!best || item.to.length > best.len)) {
           best = { label: g.label, len: item.to.length };
         }
@@ -285,7 +295,7 @@ function SidebarGroup({
 }) {
   // Indica visualmente quando o grupo contém a página atual mas está fechado
   const hasActive = items.some((item) =>
-    item.to === "/" ? currentPath === "/" : currentPath.startsWith(item.to),
+    isRouteActive(currentPath, item.to),
   );
 
   return (
@@ -343,7 +353,7 @@ function SidebarLink({
   onNavigate?: () => void;
 }) {
   const active =
-    item.to === "/" ? currentPath === "/" : currentPath.startsWith(item.to);
+    isRouteActive(currentPath, item.to);
   const Icon = item.icon;
   return (
     <Link
