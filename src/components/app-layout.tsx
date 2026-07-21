@@ -48,11 +48,13 @@ function isRouteActive(currentPath: string, to: string): boolean {
   return currentPath === to || currentPath.startsWith(to + "/");
 }
 
+// A Visão Geral compara unidades entre si — só faz sentido para quem
+// enxerga mais de uma loja. Os demais vão direto ao dashboard da sua.
 const DASHBOARD: NavItem = {
   label: "Visão Geral",
   to: "/",
   icon: LayoutDashboard,
-  roles: ["administrador", "master", "gerente", "analista", "operador"],
+  roles: ["administrador", "master"],
 };
 
 const GROUPS: NavGroup[] = [
@@ -103,7 +105,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!profile) return;
     if (!isPathAllowed(profile.role, location.pathname)) {
-      navigate({ to: "/", replace: true });
+      // Cada perfil tem sua home: global vai à Visão Geral, os demais
+      // ao dashboard da própria loja. Mandar todos para "/" causaria
+      // loop, já que "/" não é permitida a gerente/analista/operador.
+      const home =
+        profile.role === "administrador" || profile.role === "master"
+          ? "/"
+          : "/dashboard-vendas";
+      navigate({ to: home, replace: true });
     }
   }, [profile, location.pathname, navigate]);
 
