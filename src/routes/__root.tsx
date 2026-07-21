@@ -94,12 +94,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Connect 7 · Hub financeiro para redes varejistas" },
       { name: "twitter:description", content: "Connect 7 consolida vendas de cartão, prevê recebíveis de adquirentes e faz a conciliação bancária de matriz e filiais." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/51a47318-1e65-49b1-8c2f-627a1f782e10/id-preview-e54c769b--ff55ee17-0a8d-4d80-891d-1ba39b0a84ec.lovable.app-1784600682105.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/51a47318-1e65-49b1-8c2f-627a1f782e10/id-preview-e54c769b--ff55ee17-0a8d-4d80-891d-1ba39b0a84ec.lovable.app-1784600682105.png" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c6524ef8-6de0-4053-8789-de4a27de7a7f/id-preview-a288b714--ff55ee17-0a8d-4d80-891d-1ba39b0a84ec.lovable.app-1784602010817.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/c6524ef8-6de0-4053-8789-de4a27de7a7f/id-preview-a288b714--ff55ee17-0a8d-4d80-891d-1ba39b0a84ec.lovable.app-1784602010817.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
