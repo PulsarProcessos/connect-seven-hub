@@ -302,9 +302,13 @@ export function ConciliacaoPanel({ lojaId }: { lojaId: string }) {
 
   if (!lojaId)
     return (
-      <p className="mt-6 text-sm text-muted-foreground">
-        Selecione uma loja para conciliar.
-      </p>
+      <div className="mt-6 rounded-lg border border-border bg-muted/30 p-6 text-center">
+        <p className="text-sm font-medium">Nenhuma unidade selecionada</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          A conciliação é feita por unidade. Escolha uma no seletor do topo — em
+          “Todas as unidades” não é possível conciliar.
+        </p>
+      </div>
     );
 
   return (
