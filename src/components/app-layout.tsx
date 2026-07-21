@@ -19,6 +19,8 @@ import {
   BarChart3,
   Tags,
   ListTree,
+  CreditCard,
+  Percent,
 } from "lucide-react";
 import { Connect7Logo } from "./connect7-logo";
 import { NovaMovimentacaoButton } from "./nova-movimentacao-button";
@@ -37,7 +39,7 @@ type NavGroup = {
 };
 
 const DASHBOARD: NavItem = {
-  label: "Dashboard",
+  label: "Visão Geral",
   to: "/",
   icon: LayoutDashboard,
   roles: ["administrador", "master", "gerente", "analista", "operador"],
@@ -45,27 +47,36 @@ const DASHBOARD: NavItem = {
 
 const GROUPS: NavGroup[] = [
   {
-    label: "Ucase",
+    label: "Dashboard",
     items: [
-      { label: "Vendas", to: "/vendas", icon: Receipt, roles: ["administrador", "gerente", "analista", "operador"] },
-      { label: "Detalhamento", to: "/detalhamento", icon: BarChart3, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+      { label: "Vendas", to: "/dashboard-vendas", icon: BarChart3, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+      { label: "Financeiro", to: "/dashboard-financeiro", icon: LayoutDashboard, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+    ],
+  },
+  {
+    label: "Vendas",
+    items: [
+      { label: "Importação de Vendas", to: "/vendas", icon: FileUp, roles: ["administrador", "gerente", "analista", "operador"] },
+      { label: "Detalhamento de Vendas", to: "/detalhamento", icon: Receipt, roles: ["administrador", "master", "gerente", "analista", "operador"] },
     ],
   },
   {
     label: "Movimentação Bancária",
     items: [
-      { label: "Extrato Bancário", to: "/extrato", icon: FileUp, roles: ["administrador", "gerente", "analista", "operador"] },
-      { label: "Conciliação Bancária", to: "/conciliacao", icon: GitCompareArrows, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+      { label: "Extrato Bancário", to: "/extrato", icon: GitCompareArrows, roles: ["administrador", "gerente", "analista", "operador"] },
+      { label: "Contas a Pagar", to: "/contas-pagar", icon: Wallet, roles: ["administrador", "master", "gerente", "analista", "operador"] },
       { label: "Extrato Financeiro", to: "/extrato-financeiro", icon: ListTree, roles: ["administrador", "master", "gerente", "analista", "operador"] },
     ],
   },
   {
     label: "Configurações",
     items: [
+      { label: "Cartões de Crédito", to: "/cartoes", icon: CreditCard, roles: ["administrador"] },
       { label: "Financeiras", to: "/financeiras", icon: Landmark, roles: ["administrador"] },
-      { label: "Lojas", to: "/lojas", icon: Building2, roles: ["administrador"] },
       { label: "Contas Bancárias", to: "/contas", icon: Wallet, roles: ["administrador", "gerente"] },
-      { label: "Categorias (DRE)", to: "/categorias", icon: Tags, roles: ["administrador"] },
+      { label: "Comissões", to: "/comissoes", icon: Percent, roles: ["administrador"] },
+      { label: "Categorias", to: "/categorias", icon: Tags, roles: ["administrador", "gerente", "analista"] },
+      { label: "Lojas", to: "/lojas", icon: Building2, roles: ["administrador"] },
       { label: "Usuários", to: "/usuarios", icon: Users, roles: ["administrador", "gerente"] },
     ],
   },
