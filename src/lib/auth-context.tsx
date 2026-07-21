@@ -109,7 +109,10 @@ const ROLE_ROUTES: Record<AppRole, string[]> = {
 
 export function isPathAllowed(role: AppRole, pathname: string): boolean {
   const allowed = ROLE_ROUTES[role] ?? ["/"];
-  return allowed.some((p) => (p === "/" ? pathname === "/" : pathname.startsWith(p)));
+  // Match exato ou sub-rota. Sem a barra, "/contas" liberaria "/contas-pagar".
+  return allowed.some((p) =>
+    p === "/" ? pathname === "/" : pathname === p || pathname.startsWith(p + "/"),
+  );
 }
 
 export function allowedRoutesFor(role: AppRole): string[] {
