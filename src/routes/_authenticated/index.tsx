@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Building2, Layers, TrendingUp, AlertTriangle, Wallet } from "lucide-react";
 import { AppLayout } from "@/components/app-layout";
@@ -6,6 +6,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/_authenticated/")({
+  // A Visão Geral só existe para quem enxerga várias lojas. Redirecionar
+  // aqui (e não no componente) evita o flash de "Redirecionando…".
+  beforeLoad: async () => {
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) return;
+    const { data: perfil } = await supabase
+      .from("usuarios_perfis")
+      .select("role")
+      .eq("id", data.user.id)
+      .maybeSingle();
+    const role = perfil?.role;
+    if (role && role !== "administrador" && role !== "master") {
+      throw redirect({ to: "/dashboard-vendas", replace: true });
+    }
+  },
   head: () => ({
     meta: [{ title: "Visão Geral · Connect 7" }, { name: "robots", content: "noindex" }],
   }),
@@ -50,15 +65,6 @@ function VisaoGeralPage() {
     })();
   }, []);
 
-  // Usuário de loja única não vê blocos: vai direto para o dashboard da sua loja
-  useEffect(() => {
-    if (!profile || isGlobal) return;
-    if (profile.id_loja) {
-      setSelectedLojaId(profile.id_loja);
-      navigate({ to: "/dashboard-vendas", replace: true });
-    }
-  }, [profile, isGlobal, navigate, setSelectedLojaId]);
-
   const consolidado = useMemo(
     () =>
       rows.reduce(
@@ -83,7 +89,18 @@ function VisaoGeralPage() {
   if (!isGlobal) {
     return (
       <AppLayout>
-        <p className="text-sm text-muted-foreground">Redirecionando…</p>
+        <div className="py-10 text-center">
+          <p className="text-sm font-medium">Esta página não se aplica ao seu acesso</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            A Visão Geral compara unidades. Use o Dashboard para ver a sua.
+          </p>
+          <button
+            onClick={() => navigate({ to: "/dashboard-vendas" })}
+            className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+          >
+            Ir para o Dashboard
+          </button>
+        </div>
       </AppLayout>
     );
   }

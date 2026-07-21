@@ -66,7 +66,6 @@ const ROLE_ROUTES: Record<AppRole, string[]> = {
     "/alertas",
   ],
   gerente: [
-    "/",
     "/dashboard-vendas",
     "/dashboard-financeiro",
     "/vendas",
@@ -81,7 +80,6 @@ const ROLE_ROUTES: Record<AppRole, string[]> = {
     "/usuarios",
   ],
   analista: [
-    "/",
     "/dashboard-vendas",
     "/dashboard-financeiro",
     "/vendas",
@@ -94,7 +92,6 @@ const ROLE_ROUTES: Record<AppRole, string[]> = {
     "/categorias",
   ],
   operador: [
-    "/",
     "/dashboard-vendas",
     "/dashboard-financeiro",
     "/vendas",
