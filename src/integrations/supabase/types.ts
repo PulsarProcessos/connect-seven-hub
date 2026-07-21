@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      cartoes: {
+        Row: {
+          ativa: boolean
+          created_at: string
+          id: string
+          nome: string
+          prazo_recebimento_dias: number
+          taxa_padrao: number
+        }
+        Insert: {
+          ativa?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          prazo_recebimento_dias?: number
+          taxa_padrao?: number
+        }
+        Update: {
+          ativa?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          prazo_recebimento_dias?: number
+          taxa_padrao?: number
+        }
+        Relationships: []
+      }
       conciliacao_extrato: {
         Row: {
           conciliado_por: string | null
@@ -92,6 +119,13 @@ export type Database = {
             columns: ["id_venda_ucase"]
             isOneToOne: false
             referencedRelation: "vendas_ucase"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conciliacao_extrato_id_venda_ucase_fkey"
+            columns: ["id_venda_ucase"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ucase"
             referencedColumns: ["id"]
           },
         ]
@@ -637,11 +671,16 @@ export type Database = {
           created_at: string
           data_prevista_recebimento: string | null
           data_venda: string
+          forma_pagamento_origem: string | null
           id: string
-          id_financeira: string
+          id_cartao: string | null
+          id_financeira: string | null
           id_importacao: string | null
           id_loja: string
+          meio_pagamento: Database["public"]["Enums"]["meio_pagamento"]
           mes_venda: string
+          numero_venda: string | null
+          qtde_parcelas: number | null
           status_conciliacao: Database["public"]["Enums"]["status_conciliacao"]
           valor_bruto: number
           valor_liquido_previsto: number
@@ -650,11 +689,16 @@ export type Database = {
           created_at?: string
           data_prevista_recebimento?: string | null
           data_venda: string
+          forma_pagamento_origem?: string | null
           id?: string
-          id_financeira: string
+          id_cartao?: string | null
+          id_financeira?: string | null
           id_importacao?: string | null
           id_loja: string
+          meio_pagamento?: Database["public"]["Enums"]["meio_pagamento"]
           mes_venda?: string
+          numero_venda?: string | null
+          qtde_parcelas?: number | null
           status_conciliacao?: Database["public"]["Enums"]["status_conciliacao"]
           valor_bruto: number
           valor_liquido_previsto?: number
@@ -663,16 +707,28 @@ export type Database = {
           created_at?: string
           data_prevista_recebimento?: string | null
           data_venda?: string
+          forma_pagamento_origem?: string | null
           id?: string
-          id_financeira?: string
+          id_cartao?: string | null
+          id_financeira?: string | null
           id_importacao?: string | null
           id_loja?: string
+          meio_pagamento?: Database["public"]["Enums"]["meio_pagamento"]
           mes_venda?: string
+          numero_venda?: string | null
+          qtde_parcelas?: number | null
           status_conciliacao?: Database["public"]["Enums"]["status_conciliacao"]
           valor_bruto?: number
           valor_liquido_previsto?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "vendas_ucase_id_cartao_fkey"
+            columns: ["id_cartao"]
+            isOneToOne: false
+            referencedRelation: "cartoes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "vendas_ucase_id_financeira_fkey"
             columns: ["id_financeira"]
@@ -749,6 +805,67 @@ export type Database = {
           },
         ]
       }
+      vw_vendas_ucase: {
+        Row: {
+          created_at: string | null
+          data_prevista_recebimento: string | null
+          data_venda: string | null
+          forma_pagamento_origem: string | null
+          id: string | null
+          id_cartao: string | null
+          id_financeira: string | null
+          id_importacao: string | null
+          id_loja: string | null
+          meio_label: string | null
+          meio_pagamento: Database["public"]["Enums"]["meio_pagamento"] | null
+          mes_venda: string | null
+          numero_venda: string | null
+          origem_nome: string | null
+          qtde_parcelas: number | null
+          status_conciliacao:
+            | Database["public"]["Enums"]["status_conciliacao"]
+            | null
+          valor_bruto: number | null
+          valor_liquido_previsto: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendas_ucase_id_cartao_fkey"
+            columns: ["id_cartao"]
+            isOneToOne: false
+            referencedRelation: "cartoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_ucase_id_financeira_fkey"
+            columns: ["id_financeira"]
+            isOneToOne: false
+            referencedRelation: "financeiras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_ucase_id_importacao_fkey"
+            columns: ["id_importacao"]
+            isOneToOne: false
+            referencedRelation: "importacoes_ucase"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_ucase_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_ucase_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       add_dias_uteis: {
@@ -768,6 +885,7 @@ export type Database = {
     }
     Enums: {
       app_role: "administrador" | "master" | "gerente" | "analista" | "operador"
+      meio_pagamento: "cartao" | "financeira" | "a_vista"
       natureza_dre: "receita" | "despesa"
       status_conciliacao: "pendente" | "conciliado" | "atrasado"
       tipo_movimentacao: "venda" | "despesa" | "transferencia"
@@ -900,6 +1018,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["administrador", "master", "gerente", "analista", "operador"],
+      meio_pagamento: ["cartao", "financeira", "a_vista"],
       natureza_dre: ["receita", "despesa"],
       status_conciliacao: ["pendente", "conciliado", "atrasado"],
       tipo_movimentacao: ["venda", "despesa", "transferencia"],
