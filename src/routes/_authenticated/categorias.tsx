@@ -124,7 +124,11 @@ function CategoriasPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (profile && profile.role !== "administrador") {
+  const isAdmin = profile?.role === "administrador";
+  const podeGerenciarLoja =
+    profile?.role === "gerente" || profile?.role === "analista";
+
+  if (profile && !isAdmin && !podeGerenciarLoja) {
     return (
       <AppLayout>
         <p className="text-sm text-muted-foreground">Acesso restrito.</p>
@@ -219,14 +223,19 @@ function GrupoCard({
   const [novoNome, setNovoNome] = useState("");
   const [novoOrdem, setNovoOrdem] = useState<string>("0");
 
+  const { profile } = useAuth();
   const criarCat = useMutation({
     mutationFn: async () => {
       const nome = novoNome.trim();
       if (!nome) throw new Error("Informe o nome");
+      const isAdmin = profile?.role === "administrador";
+      // Admin cria categoria fixa (global). Demais criam categoria da própria loja.
       const { error } = await supabase.from("dre_categorias").insert({
         id_grupo: grupo.id,
         nome,
         ordem: Number(novoOrdem) || 0,
+        fixo: isAdmin,
+        id_loja: isAdmin ? null : (profile?.id_loja ?? null),
       });
       if (error) throw error;
     },
