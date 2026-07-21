@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Upload, X, FileText } from "lucide-react";
+import { Upload, X, FileText, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { ConciliacaoPanel } from "@/components/conciliacao-panel";
 
 export const Route = createFileRoute("/_authenticated/extrato")({
   head: () => ({
@@ -88,6 +89,7 @@ function ImportarExtratoPage() {
   const { profile, selectedLojaId } = useAuth();
   const isAdmin = profile?.role === "administrador";
   const inputRef = useRef<HTMLInputElement>(null);
+  const [aba, setAba] = useState<"importar" | "conciliar">("importar");
 
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [contas, setContas] = useState<Conta[]>([]);
@@ -229,10 +231,42 @@ function ImportarExtratoPage() {
     <AppLayout>
       <div className="mx-auto max-w-6xl space-y-6">
         <header>
-          <h1 className="text-2xl font-semibold tracking-tight">Importar Extrato Bancário</h1>
-          <p className="text-sm text-muted-foreground">Envie um arquivo OFX para registrar os lançamentos na conta selecionada.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Extrato Bancário</h1>
+          <p className="text-sm text-muted-foreground">
+            Importe o arquivo OFX e concilie os lançamentos com as vendas a receber e as
+            contas a pagar.
+          </p>
         </header>
 
+        <div className="flex gap-1 border-b border-border">
+          <button
+            onClick={() => setAba("importar")}
+            className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              aba === "importar"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Upload className="h-4 w-4" />
+            Importação
+          </button>
+          <button
+            onClick={() => setAba("conciliar")}
+            className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              aba === "conciliar"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Link2 className="h-4 w-4" />
+            Conciliação
+          </button>
+        </div>
+
+        {aba === "conciliar" ? (
+          <ConciliacaoPanel lojaId={targetLoja || profile?.id_loja || ""} />
+        ) : (
+        <>
         <div className="rounded-lg border bg-card p-5">
           <div className="grid gap-4 md:grid-cols-2">
             {isAdmin && (
@@ -340,6 +374,8 @@ function ImportarExtratoPage() {
               </Table>
             </div>
           </div>
+        )}
+        </>
         )}
       </div>
     </AppLayout>
