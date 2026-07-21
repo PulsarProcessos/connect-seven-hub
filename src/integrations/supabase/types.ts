@@ -41,6 +41,58 @@ export type Database = {
         }
         Relationships: []
       }
+      comissao_faixas: {
+        Row: {
+          ativa: boolean
+          created_at: string
+          id: string
+          id_loja: string
+          percentual: number
+          valor_max: number | null
+          valor_min: number
+        }
+        Insert: {
+          ativa?: boolean
+          created_at?: string
+          id?: string
+          id_loja: string
+          percentual: number
+          valor_max?: number | null
+          valor_min?: number
+        }
+        Update: {
+          ativa?: boolean
+          created_at?: string
+          id?: string
+          id_loja?: string
+          percentual?: number
+          valor_max?: number | null
+          valor_min?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comissao_faixas_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comissao_faixas_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comissao_faixas_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
+          },
+        ]
+      }
       conciliacao_extrato: {
         Row: {
           conciliado_por: string | null
@@ -115,6 +167,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "conciliacao_extrato_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
+          },
+          {
             foreignKeyName: "conciliacao_extrato_id_venda_ucase_fkey"
             columns: ["id_venda_ucase"]
             isOneToOne: false
@@ -173,30 +232,144 @@ export type Database = {
             referencedRelation: "vw_lojas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "contas_bancarias_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
+          },
+        ]
+      }
+      contas_pagar: {
+        Row: {
+          created_at: string
+          criado_por: string | null
+          data_pagamento: string | null
+          data_vencimento: string
+          descricao: string
+          fornecedor: string | null
+          id: string
+          id_categoria: string | null
+          id_conta_bancaria: string | null
+          id_extrato_lancamento: string | null
+          id_loja: string
+          observacao: string | null
+          status: Database["public"]["Enums"]["status_conta_pagar"]
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          criado_por?: string | null
+          data_pagamento?: string | null
+          data_vencimento: string
+          descricao: string
+          fornecedor?: string | null
+          id?: string
+          id_categoria?: string | null
+          id_conta_bancaria?: string | null
+          id_extrato_lancamento?: string | null
+          id_loja: string
+          observacao?: string | null
+          status?: Database["public"]["Enums"]["status_conta_pagar"]
+          valor: number
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string | null
+          data_pagamento?: string | null
+          data_vencimento?: string
+          descricao?: string
+          fornecedor?: string | null
+          id?: string
+          id_categoria?: string | null
+          id_conta_bancaria?: string | null
+          id_extrato_lancamento?: string | null
+          id_loja?: string
+          observacao?: string | null
+          status?: Database["public"]["Enums"]["status_conta_pagar"]
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contas_pagar_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios_perfis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_id_categoria_fkey"
+            columns: ["id_categoria"]
+            isOneToOne: false
+            referencedRelation: "dre_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_id_conta_bancaria_fkey"
+            columns: ["id_conta_bancaria"]
+            isOneToOne: false
+            referencedRelation: "contas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_id_extrato_lancamento_fkey"
+            columns: ["id_extrato_lancamento"]
+            isOneToOne: false
+            referencedRelation: "extrato_lancamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
+          },
         ]
       }
       dre_categorias: {
         Row: {
           ativo: boolean
           created_at: string
+          fixo: boolean
           id: string
           id_grupo: string
+          id_loja: string | null
           nome: string
           ordem: number
         }
         Insert: {
           ativo?: boolean
           created_at?: string
+          fixo?: boolean
           id?: string
           id_grupo: string
+          id_loja?: string | null
           nome: string
           ordem?: number
         }
         Update: {
           ativo?: boolean
           created_at?: string
+          fixo?: boolean
           id?: string
           id_grupo?: string
+          id_loja?: string | null
           nome?: string
           ordem?: number
         }
@@ -208,12 +381,34 @@ export type Database = {
             referencedRelation: "dre_grupos"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "dre_categorias_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dre_categorias_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dre_categorias_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
+          },
         ]
       }
       dre_grupos: {
         Row: {
           ativo: boolean
           created_at: string
+          fixo: boolean
           id: string
           natureza: Database["public"]["Enums"]["natureza_dre"]
           nome: string
@@ -222,6 +417,7 @@ export type Database = {
         Insert: {
           ativo?: boolean
           created_at?: string
+          fixo?: boolean
           id?: string
           natureza?: Database["public"]["Enums"]["natureza_dre"]
           nome: string
@@ -230,6 +426,7 @@ export type Database = {
         Update: {
           ativo?: boolean
           created_at?: string
+          fixo?: boolean
           id?: string
           natureza?: Database["public"]["Enums"]["natureza_dre"]
           nome?: string
@@ -302,6 +499,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_lojas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extrato_lancamentos_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
           },
         ]
       }
@@ -401,6 +605,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "importacoes_extrato_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
+          },
+          {
             foreignKeyName: "importacoes_extrato_importado_por_fkey"
             columns: ["importado_por"]
             isOneToOne: false
@@ -450,11 +661,136 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "importacoes_ucase_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
+          },
+          {
             foreignKeyName: "importacoes_ucase_importado_por_fkey"
             columns: ["importado_por"]
             isOneToOne: false
             referencedRelation: "usuarios_perfis"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      loja_cartoes: {
+        Row: {
+          ativa: boolean
+          created_at: string
+          id: string
+          id_cartao: string
+          id_loja: string
+          prazo_recebimento_dias: number
+          taxa_padrao: number
+        }
+        Insert: {
+          ativa?: boolean
+          created_at?: string
+          id?: string
+          id_cartao: string
+          id_loja: string
+          prazo_recebimento_dias?: number
+          taxa_padrao?: number
+        }
+        Update: {
+          ativa?: boolean
+          created_at?: string
+          id?: string
+          id_cartao?: string
+          id_loja?: string
+          prazo_recebimento_dias?: number
+          taxa_padrao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loja_cartoes_id_cartao_fkey"
+            columns: ["id_cartao"]
+            isOneToOne: false
+            referencedRelation: "cartoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_cartoes_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_cartoes_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_cartoes_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
+          },
+        ]
+      }
+      loja_financeiras: {
+        Row: {
+          ativa: boolean
+          created_at: string
+          id: string
+          id_financeira: string
+          id_loja: string
+          prazo_recebimento_dias: number
+          taxa_padrao: number
+        }
+        Insert: {
+          ativa?: boolean
+          created_at?: string
+          id?: string
+          id_financeira: string
+          id_loja: string
+          prazo_recebimento_dias?: number
+          taxa_padrao?: number
+        }
+        Update: {
+          ativa?: boolean
+          created_at?: string
+          id?: string
+          id_financeira?: string
+          id_loja?: string
+          prazo_recebimento_dias?: number
+          taxa_padrao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loja_financeiras_id_financeira_fkey"
+            columns: ["id_financeira"]
+            isOneToOne: false
+            referencedRelation: "financeiras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_financeiras_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_financeiras_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_financeiras_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
           },
         ]
       }
@@ -595,6 +931,13 @@ export type Database = {
             referencedRelation: "vw_lojas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "movimentacoes_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
+          },
         ]
       }
       tipos_loja: {
@@ -663,6 +1006,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_lojas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usuarios_perfis_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
           },
         ]
       }
@@ -757,6 +1107,13 @@ export type Database = {
             referencedRelation: "vw_lojas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "vendas_ucase_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
+          },
         ]
       }
     }
@@ -804,6 +1161,23 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vw_resumo_lojas: {
+        Row: {
+          ativa: boolean | null
+          contas_pagar_aberto: number | null
+          contas_pagar_vencidas: number | null
+          id_loja: string | null
+          nome_fantasia: string | null
+          qtd_vendas_mes: number | null
+          razao_social: string | null
+          tipo_socio: Database["public"]["Enums"]["tipo_socio"] | null
+          total_bruto_mes: number | null
+          total_liquido_mes: number | null
+          vendas_atrasadas: number | null
+          vendas_pendentes: number | null
+        }
+        Relationships: []
       }
       vw_vendas_ucase: {
         Row: {
@@ -864,6 +1238,13 @@ export type Database = {
             referencedRelation: "vw_lojas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "vendas_ucase_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
+          },
         ]
       }
     }
@@ -871,6 +1252,13 @@ export type Database = {
       add_dias_uteis: {
         Args: { p_data: string; p_dias: number }
         Returns: string
+      }
+      calcular_comissao: {
+        Args: { p_loja: string; p_mes: string }
+        Returns: {
+          total_comissao: number
+          total_vendido: number
+        }[]
       }
       can_access_loja: { Args: { p_loja: string }; Returns: boolean }
       current_loja: { Args: never; Returns: string }
@@ -888,6 +1276,7 @@ export type Database = {
       meio_pagamento: "cartao" | "financeira" | "a_vista"
       natureza_dre: "receita" | "despesa"
       status_conciliacao: "pendente" | "conciliado" | "atrasado"
+      status_conta_pagar: "aberto" | "pago" | "cancelado"
       tipo_movimentacao: "venda" | "despesa" | "transferencia"
       tipo_socio: "propria" | "franqueado"
     }
@@ -1021,6 +1410,7 @@ export const Constants = {
       meio_pagamento: ["cartao", "financeira", "a_vista"],
       natureza_dre: ["receita", "despesa"],
       status_conciliacao: ["pendente", "conciliado", "atrasado"],
+      status_conta_pagar: ["aberto", "pago", "cancelado"],
       tipo_movimentacao: ["venda", "despesa", "transferencia"],
       tipo_socio: ["propria", "franqueado"],
     },
