@@ -137,7 +137,7 @@ function extrairBandeira(forma: string): string | null {
 }
 
 function detectColumns(headers: string[]) {
-  const norm = headers.map((h) => normalize(h));
+  const norm = headers.map((h) => normalize(String(h ?? "")));
   const find = (keys: string[]) => {
     // 1) match exato, respeitando a ordem de prioridade das chaves
     for (const k of keys) {
@@ -353,12 +353,23 @@ function ImportarVendasPage() {
         const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf, { type: "array", cellDates: false });
         const sheet = wb.Sheets[wb.SheetNames[0]];
-        const arr = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+        const raw = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
           header: 1,
           blankrows: false,
           raw: true,
+          defval: "", // materializa células vazias, evitando arrays esparsos
         });
-        if (arr.length < 2) return toast.error("Arquivo vazio");
+        if (raw.length < 2) return toast.error("Arquivo vazio");
+        // Colunas com cabeçalho vazio (comuns em exports) deixam buracos no
+        // array. Normaliza para o mesmo comprimento, trocando buracos e
+        // undefined por string vazia, senão a detecção de colunas quebra.
+        const ncols = Math.max(...raw.map((r) => (r as unknown[]).length));
+        const arr = raw.map((r) => {
+          const row = r as unknown[];
+          const out: unknown[] = [];
+          for (let i = 0; i < ncols; i++) out.push(row[i] ?? "");
+          return out;
+        });
         const headers = (arr[0] as unknown[]).map((h) => String(h ?? ""));
         const built = buildRows(arr.slice(1) as unknown[][], headers, financeiras, cartoes);
         setRows(built);
