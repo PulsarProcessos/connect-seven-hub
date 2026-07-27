@@ -1260,16 +1260,7 @@ export type Database = {
           total_vendido: number
         }[]
       }
-      can_access_loja: { Args: { p_loja: string }; Returns: boolean }
-      current_loja: { Args: never; Returns: string }
-      current_role: {
-        Args: never
-        Returns: Database["public"]["Enums"]["app_role"]
-      }
       fn_atualizar_status_atrasados: { Args: never; Returns: undefined }
-      is_admin: { Args: never; Returns: boolean }
-      is_global: { Args: never; Returns: boolean }
-      is_master: { Args: never; Returns: boolean }
     }
     Enums: {
       app_role: "administrador" | "master" | "gerente" | "analista" | "operador"
