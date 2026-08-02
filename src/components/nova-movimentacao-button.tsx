@@ -28,7 +28,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { EntityCombobox } from "@/components/entity-combobox";
 import { supabase } from "@/integrations/supabase/client";
+
 import { useAuth } from "@/lib/auth-context";
 import { maskMoney, parseMoney, friendlyDbError } from "@/lib/money";
 
@@ -96,6 +98,22 @@ function MovimentacaoDialog({
   const [idCategoria, setIdCategoria] = useState<string>("");
   const [idConta, setIdConta] = useState<string>("");
   const [idContaDestino, setIdContaDestino] = useState<string>("");
+  const [idPessoa, setIdPessoa] = useState<string | null>(null);
+
+  const pessoasQ = useQuery({
+    queryKey: ["mov_pessoas", tipo],
+    enabled: tipo !== "transferencia",
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(tipo === "venda" ? "clientes" : "fornecedores")
+        .select("id, nome")
+        .eq("ativo", true)
+        .order("nome");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
 
   useEffect(() => {
     setIdLoja(defaultLoja);
@@ -182,7 +200,10 @@ function MovimentacaoDialog({
         id_categoria: tipo === "transferencia" ? null : idCategoria,
         id_conta_bancaria: idConta || null,
         id_conta_destino: tipo === "transferencia" ? idContaDestino : null,
+        id_cliente: tipo === "venda" ? idPessoa : null,
+        id_fornecedor: tipo === "despesa" ? idPessoa : null,
         criado_por: profile?.id ?? null,
+
       };
       const { error } = await supabase.from("movimentacoes").insert(payload);
       if (error) throw new Error(friendlyDbError(error));
@@ -278,6 +299,21 @@ function MovimentacaoDialog({
 
           {tipo !== "transferencia" && (
             <div className="grid gap-2">
+              <Label>{tipo === "venda" ? "Cliente" : "Fornecedor"}</Label>
+              <EntityCombobox
+                options={(pessoasQ.data ?? []).map((p) => ({
+                  value: p.id,
+                  label: p.nome,
+                }))}
+                value={idPessoa}
+                onChange={setIdPessoa}
+                placeholder="Opcional — digite para filtrar"
+              />
+            </div>
+          )}
+
+          {tipo !== "transferencia" && (
+            <div className="grid gap-2">
               <Label>Categoria (DRE)</Label>
               <Select value={idCategoria} onValueChange={setIdCategoria}>
                 <SelectTrigger>
@@ -306,6 +342,7 @@ function MovimentacaoDialog({
           )}
 
           {tipo !== "transferencia" ? (
+
             <div className="grid gap-2">
               <Label>
                 {tipo === "venda" ? "Conta de crédito" : "Conta de débito"}{" "}

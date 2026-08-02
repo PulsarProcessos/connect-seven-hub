@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Calculator, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/app-layout";
@@ -31,63 +32,49 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { friendlyDbError } from "@/lib/money";
+import {
+  fmtBRL,
+  fmtPct,
+  friendlyDbError,
+  maskMoney,
+  maskPct,
+  parseMoney,
+  parsePct,
+  toMoneyInput,
+} from "@/lib/money";
 
 export const Route = createFileRoute("/_authenticated/comissoes")({
   head: () => ({
     meta: [
-      { title: "Comissões · Connect 7" },
+      { title: "Cadastro de Comissões · Connect 7" },
+      {
+        name: "description",
+        content: "Faixas progressivas de comissão por loja e por vendedor.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),
   component: ComissoesPage,
 });
 
-type Faixa = {
+type Regra = {
   id: string;
   id_loja: string;
+  id_vendedor: string | null;
   valor_min: number;
   valor_max: number | null;
   percentual: number;
   ativa: boolean;
 };
 
-const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const fmt = (v: unknown) => BRL.format(Number(v ?? 0) || 0);
-const fmtPct = (v: unknown) =>
-  Number(v ?? 0).toLocaleString("pt-BR", {
-    minimumFractionDigits: 3,
-    maximumFractionDigits: 3,
-  });
-
-/** Máscara monetária: digita da direita para a esquerda. */
-function maskMoney(raw: string): string {
-  const d = raw.replace(/\D/g, "").slice(0, 12);
-  if (!d) return "";
-  return (parseInt(d, 10) / 100).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-function parseMoney(s: string): number {
-  return Number(s.replace(/\./g, "").replace(",", ".")) || 0;
-}
-function maskPct(raw: string): string {
-  const d = raw.replace(/\D/g, "").slice(0, 6);
-  if (!d) return "";
-  return (parseInt(d, 10) / 1000).toLocaleString("pt-BR", {
-    minimumFractionDigits: 3,
-    maximumFractionDigits: 3,
-  });
-}
-function parsePct(s: string): number {
-  return Number(s.replace(/\./g, "").replace(",", ".")) || 0;
-}
+const LOJA_TODOS = "__loja__";
 
 /** Cálculo progressivo, espelhando a função calcular_comissao do banco. */
-function calcularComissao(faixas: Faixa[], total: number): number {
+function calcularComissao(regras: Regra[], total: number): number {
   let com = 0;
-  for (const f of faixas.filter((x) => x.ativa).sort((a, b) => a.valor_min - b.valor_min)) {
+  for (const f of regras
+    .filter((x) => x.ativa)
+    .sort((a, b) => Number(a.valor_min) - Number(b.valor_min))) {
     const teto = f.valor_max == null ? total : Math.min(Number(f.valor_max), total);
     const fatia = teto - Number(f.valor_min);
     if (fatia > 0) com += (fatia * Number(f.percentual)) / 100;
@@ -97,132 +84,155 @@ function calcularComissao(faixas: Faixa[], total: number): number {
 
 function ComissoesPage() {
   const { profile, lojas } = useAuth();
-  const [lojaSel, setLojaSel] = useState("");
-  const [faixas, setFaixas] = useState<Faixa[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [dlg, setDlg] = useState(false);
-  const [editing, setEditing] = useState<Faixa | null>(null);
-  const [simulacao, setSimulacao] = useState("");
-
+  const qc = useQueryClient();
   const isAdmin = profile?.role === "administrador";
 
-  const load = async (loja: string) => {
-    if (!loja) return setFaixas([]);
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("comissao_faixas")
-      .select("id, id_loja, valor_min, valor_max, percentual, ativa")
-      .eq("id_loja", loja)
-      .order("valor_min");
-    if (error) toast.error("Erro ao carregar faixas");
-    else setFaixas((data ?? []) as Faixa[]);
-    setLoading(false);
-  };
+  const [lojaSel, setLojaSel] = useState<string>(profile?.id_loja ?? "");
+  const [vendedorSel, setVendedorSel] = useState<string>(LOJA_TODOS);
+  const [dlg, setDlg] = useState(false);
+  const [editing, setEditing] = useState<Regra | null>(null);
+  const [simulacao, setSimulacao] = useState("");
 
-  useEffect(() => {
-    if (!lojaSel && lojas.length > 0) setLojaSel(lojas[0].id);
-  }, [lojas, lojaSel]);
+  const vendedoresQ = useQuery({
+    queryKey: ["vendedores_loja", lojaSel],
+    enabled: !!lojaSel,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("usuarios_perfis")
+        .select("id, nome")
+        .eq("id_loja", lojaSel)
+        .eq("ativo", true)
+        .order("nome");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
-  useEffect(() => {
-    if (lojaSel) load(lojaSel);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lojaSel]);
+  const regrasQ = useQuery({
+    queryKey: ["comissao_regras", lojaSel, vendedorSel],
+    enabled: !!lojaSel,
+    queryFn: async () => {
+      let q = supabase
+        .from("comissao_regras")
+        .select("id, id_loja, id_vendedor, valor_min, valor_max, percentual, ativa")
+        .eq("id_loja", lojaSel)
+        .order("valor_min");
+      q = vendedorSel === LOJA_TODOS ? q.is("id_vendedor", null) : q.eq("id_vendedor", vendedorSel);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as Regra[];
+    },
+  });
 
-  const ordenadas = useMemo(
-    () => [...faixas].sort((a, b) => Number(a.valor_min) - Number(b.valor_min)),
-    [faixas],
-  );
+  const regras = regrasQ.data ?? [];
 
-  /** Detecta buracos e sobreposições entre as faixas. */
-  const inconsistencias = useMemo(() => {
-    const msgs: string[] = [];
-    const ativas = ordenadas.filter((f) => f.ativa);
-    for (let i = 0; i < ativas.length - 1; i++) {
-      const atual = ativas[i];
-      const prox = ativas[i + 1];
-      if (atual.valor_max == null) {
-        msgs.push("Uma faixa sem teto não pode ter faixas depois dela.");
-        break;
-      }
-      const fim = Number(atual.valor_max);
-      const ini = Number(prox.valor_min);
-      if (ini > fim) msgs.push(`Intervalo descoberto entre ${fmt(fim)} e ${fmt(ini)}.`);
-      if (ini < fim) msgs.push(`Sobreposição entre ${fmt(ini)} e ${fmt(fim)}.`);
+  const sobreposicao = useMemo(() => {
+    const ordenadas = [...regras].sort((a, b) => Number(a.valor_min) - Number(b.valor_min));
+    for (let i = 1; i < ordenadas.length; i++) {
+      const ant = ordenadas[i - 1];
+      if (ant.valor_max == null) return true;
+      if (Number(ordenadas[i].valor_min) < Number(ant.valor_max)) return true;
     }
-    if (ativas.length > 0 && Number(ativas[0].valor_min) > 0)
-      msgs.push(`Nenhuma faixa cobre de ${fmt(0)} até ${fmt(ativas[0].valor_min)}.`);
-    if (ativas.length > 0 && ativas[ativas.length - 1].valor_max != null)
-      msgs.push("A última faixa deveria ficar sem teto, para cobrir vendas acima do limite.");
-    return msgs;
-  }, [ordenadas]);
+    return false;
+  }, [regras]);
 
-  const valorSimulado = parseMoney(simulacao);
-  const comissaoSimulada = calcularComissao(ordenadas, valorSimulado);
+  const remover = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("comissao_regras").delete().eq("id", id);
+      if (error) throw new Error(friendlyDbError(error));
+    },
+    onSuccess: () => {
+      toast.success("Faixa removida.");
+      qc.invalidateQueries({ queryKey: ["comissao_regras"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
-  const remover = async (f: Faixa) => {
-    const { error } = await supabase.from("comissao_faixas").delete().eq("id", f.id);
-    if (error) return toast.error(friendlyDbError(error));
-    toast.success("Faixa removida");
-    load(lojaSel);
-  };
-
-  if (!isAdmin) {
-    return (
-      <AppLayout>
-        <p className="text-sm text-muted-foreground">Acesso restrito ao administrador.</p>
-      </AppLayout>
-    );
-  }
+  const simulado = calcularComissao(regras, parseMoney(simulacao));
 
   return (
     <AppLayout>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Comissões</h1>
+          <h1 className="text-xl font-semibold">Cadastro de Comissões</h1>
           <p className="text-sm text-muted-foreground">
-            Faixas por volume mensal de vendas. O cálculo é progressivo — cada fatia do
-            faturamento usa o percentual da sua faixa.
+            Faixas progressivas por loja. Deixe em “Regra da loja” para valer para todos, ou
+            selecione um vendedor para uma regra específica.
           </p>
         </div>
         <Button
-          disabled={!lojaSel}
           onClick={() => {
             setEditing(null);
             setDlg(true);
           }}
+          disabled={!lojaSel || !isAdmin}
         >
           <Plus className="h-4 w-4" />
           Nova faixa
         </Button>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <Label className="text-sm">Loja</Label>
-        <Select value={lojaSel} onValueChange={setLojaSel}>
-          <SelectTrigger className="w-[280px]">
-            <SelectValue placeholder="Selecione a loja" />
-          </SelectTrigger>
-          <SelectContent>
-            {lojas.map((l) => (
-              <SelectItem key={l.id} value={l.id}>
-                {l.nome}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="mt-5 grid gap-3 rounded-lg border border-border bg-card p-4 md:grid-cols-3">
+        <div className="grid gap-1.5">
+          <Label className="text-xs">Loja</Label>
+          <Select
+            value={lojaSel}
+            onValueChange={(v) => {
+              setLojaSel(v);
+              setVendedorSel(LOJA_TODOS);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione a loja" />
+            </SelectTrigger>
+            <SelectContent>
+              {lojas.map((l) => (
+                <SelectItem key={l.id} value={l.id}>
+                  {l.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-1.5">
+          <Label className="text-xs">Vendedor</Label>
+          <Select value={vendedorSel} onValueChange={setVendedorSel} disabled={!lojaSel}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={LOJA_TODOS}>Regra da loja (todos)</SelectItem>
+              {(vendedoresQ.data ?? []).map((v) => (
+                <SelectItem key={v.id} value={v.id}>
+                  {v.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-1.5">
+          <Label className="text-xs">Simular venda</Label>
+          <Input
+            inputMode="numeric"
+            placeholder="0,00"
+            value={simulacao}
+            onChange={(e) => setSimulacao(maskMoney(e.target.value))}
+          />
+        </div>
       </div>
 
-      {inconsistencias.length > 0 && (
-        <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-amber-800">
-            <AlertTriangle className="h-4 w-4" />
-            Revise as faixas
-          </div>
-          <ul className="mt-1 list-inside list-disc text-xs text-amber-700">
-            {inconsistencias.map((m, i) => (
-              <li key={i}>{m}</li>
-            ))}
-          </ul>
+      {simulacao && (
+        <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
+          <Calculator className="h-4 w-4 text-primary" />
+          Sobre {fmtBRL(parseMoney(simulacao))} a comissão é{" "}
+          <span className="font-semibold text-primary">{fmtBRL(simulado)}</span>
+        </div>
+      )}
+
+      {sobreposicao && (
+        <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          <AlertTriangle className="h-4 w-4" />
+          Há faixas sobrepostas ou sem teto no meio da tabela — revise os limites.
         </div>
       )}
 
@@ -233,52 +243,43 @@ function ComissoesPage() {
               <TableHead>De</TableHead>
               <TableHead>Até</TableHead>
               <TableHead className="text-right">Percentual</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-24 text-right">Ações</TableHead>
+              <TableHead>Ativa</TableHead>
+              <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {!lojaSel ? (
+              <TableRow>
+                <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                  Selecione uma loja.
+                </TableCell>
+              </TableRow>
+            ) : regrasQ.isLoading ? (
               <TableRow>
                 <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
                   Carregando…
                 </TableCell>
               </TableRow>
-            ) : ordenadas.length === 0 ? (
+            ) : regras.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
-                  Nenhuma faixa cadastrada para esta loja.
+                  Nenhuma faixa cadastrada para esta seleção.
                 </TableCell>
               </TableRow>
             ) : (
-              ordenadas.map((f) => (
+              regras.map((f) => (
                 <TableRow key={f.id}>
-                  <TableCell className="font-mono text-sm">{fmt(f.valor_min)}</TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {f.valor_max == null ? (
-                      <span className="text-muted-foreground">sem teto</span>
-                    ) : (
-                      fmt(f.valor_max)
-                    )}
+                  <TableCell className="font-mono">{fmtBRL(f.valor_min)}</TableCell>
+                  <TableCell className="font-mono">
+                    {f.valor_max == null ? "Sem limite" : fmtBRL(f.valor_max)}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-sm font-medium">
-                    {fmtPct(f.percentual)}%
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        f.ativa
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {f.ativa ? "Ativa" : "Inativa"}
-                    </span>
-                  </TableCell>
+                  <TableCell className="text-right font-mono">{fmtPct(f.percentual)}%</TableCell>
+                  <TableCell>{f.ativa ? "Sim" : "Não"}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="ghost"
                       size="icon"
+                      disabled={!isAdmin}
                       onClick={() => {
                         setEditing(f);
                         setDlg(true);
@@ -286,7 +287,12 @@ function ComissoesPage() {
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => remover(f)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={!isAdmin}
+                      onClick={() => remover.mutate(f.id)}
+                    >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </TableCell>
@@ -297,83 +303,12 @@ function ComissoesPage() {
         </Table>
       </div>
 
-      {/* Simulador */}
-      {ordenadas.length > 0 && (
-        <div className="mt-6 rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Calculator className="h-4 w-4 text-primary" />
-            Simulador
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Informe um faturamento mensal para conferir a comissão resultante.
-          </p>
-          <div className="mt-3 flex flex-wrap items-end gap-4">
-            <div className="grid gap-2">
-              <Label className="text-xs">Faturamento do mês (R$)</Label>
-              <Input
-                className="w-[200px] font-mono"
-                value={simulacao}
-                onChange={(e) => setSimulacao(maskMoney(e.target.value))}
-                inputMode="numeric"
-                placeholder="0,00"
-              />
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Comissão</div>
-              <div className="font-mono text-lg font-semibold text-primary">
-                {fmt(comissaoSimulada)}
-              </div>
-            </div>
-            {valorSimulado > 0 && (
-              <div>
-                <div className="text-xs text-muted-foreground">Efetivo</div>
-                <div className="font-mono text-sm">
-                  {((comissaoSimulada / valorSimulado) * 100).toFixed(3)}%
-                </div>
-              </div>
-            )}
-          </div>
-
-          {valorSimulado > 0 && (
-            <div className="mt-4 border-t border-border pt-3">
-              <div className="text-xs font-medium text-muted-foreground">
-                Detalhamento por fatia
-              </div>
-              <div className="mt-2 space-y-1">
-                {ordenadas
-                  .filter((f) => f.ativa)
-                  .map((f) => {
-                    const teto =
-                      f.valor_max == null
-                        ? valorSimulado
-                        : Math.min(Number(f.valor_max), valorSimulado);
-                    const fatia = teto - Number(f.valor_min);
-                    if (fatia <= 0) return null;
-                    const v = (fatia * Number(f.percentual)) / 100;
-                    return (
-                      <div key={f.id} className="flex items-center gap-2 text-xs">
-                        <span className="font-mono text-muted-foreground">
-                          {fmt(fatia)}
-                        </span>
-                        <span className="text-muted-foreground">×</span>
-                        <span className="font-mono">{fmtPct(f.percentual)}%</span>
-                        <span className="text-muted-foreground">=</span>
-                        <span className="font-mono font-medium">{fmt(v)}</span>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       <FaixaDialog
         open={dlg}
         onOpenChange={setDlg}
         editing={editing}
-        lojaId={lojaSel}
-        onSaved={() => load(lojaSel)}
+        idLoja={lojaSel}
+        idVendedor={vendedorSel === LOJA_TODOS ? null : vendedorSel}
       />
     </AppLayout>
   );
@@ -383,131 +318,118 @@ function FaixaDialog({
   open,
   onOpenChange,
   editing,
-  lojaId,
-  onSaved,
+  idLoja,
+  idVendedor,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  editing: Faixa | null;
-  lojaId: string;
-  onSaved: () => void;
+  editing: Regra | null;
+  idLoja: string;
+  idVendedor: string | null;
 }) {
-  const [vMin, setVMin] = useState("");
-  const [vMax, setVMax] = useState("");
+  const qc = useQueryClient();
+  const [min, setMin] = useState("");
+  const [max, setMax] = useState("");
   const [semTeto, setSemTeto] = useState(false);
   const [pct, setPct] = useState("");
   const [ativa, setAtiva] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [key, setKey] = useState<string>("");
 
-  useEffect(() => {
-    if (!open) return;
-    if (editing) {
-      setVMin(
-        Number(editing.valor_min).toLocaleString("pt-BR", { minimumFractionDigits: 2 }),
-      );
-      setSemTeto(editing.valor_max == null);
-      setVMax(
-        editing.valor_max == null
-          ? ""
-          : Number(editing.valor_max).toLocaleString("pt-BR", { minimumFractionDigits: 2 }),
-      );
-      setPct(fmtPct(editing.percentual));
-      setAtiva(editing.ativa);
-    } else {
-      setVMin("");
-      setVMax("");
-      setSemTeto(false);
-      setPct("");
-      setAtiva(true);
-    }
-  }, [open, editing]);
+  const currentKey = `${open}-${editing?.id ?? "novo"}`;
+  if (currentKey !== key) {
+    setKey(currentKey);
+    setMin(editing ? toMoneyInput(editing.valor_min) : "");
+    setMax(editing?.valor_max != null ? toMoneyInput(editing.valor_max) : "");
+    setSemTeto(editing ? editing.valor_max == null : false);
+    setPct(editing ? fmtPct(editing.percentual) : "");
+    setAtiva(editing ? editing.ativa : true);
+  }
 
-  const submit = async () => {
-    if (!lojaId) return toast.error("Selecione a loja");
-    const min = parseMoney(vMin);
-    const max = semTeto ? null : parseMoney(vMax);
-    const p = parsePct(pct);
-    if (p <= 0) return toast.error("Informe o percentual");
-    if (max != null && max <= min)
-      return toast.error("O valor final deve ser maior que o inicial");
+  const salvar = useMutation({
+    mutationFn: async () => {
+      if (!idLoja) throw new Error("Selecione a loja.");
+      const vMin = parseMoney(min);
+      const vMax = semTeto ? null : parseMoney(max);
+      const vPct = parsePct(pct);
+      if (vPct <= 0 || vPct > 100) throw new Error("Informe um percentual entre 0 e 100.");
+      if (vMax != null && vMax <= vMin)
+        throw new Error("O valor final deve ser maior que o inicial.");
 
-    setSaving(true);
-    const payload = {
-      id_loja: lojaId,
-      valor_min: min,
-      valor_max: max,
-      percentual: p,
-      ativa,
-    };
-    const { error } = editing
-      ? await supabase.from("comissao_faixas").update(payload).eq("id", editing.id)
-      : await supabase.from("comissao_faixas").insert(payload);
-    setSaving(false);
-
-    if (error) return toast.error(friendlyDbError(error));
-    toast.success(editing ? "Faixa atualizada" : "Faixa criada");
-    onOpenChange(false);
-    onSaved();
-  };
+      const payload = {
+        id_loja: idLoja,
+        id_vendedor: idVendedor,
+        valor_min: vMin,
+        valor_max: vMax,
+        percentual: vPct,
+        ativa,
+      };
+      const { error } = editing
+        ? await supabase.from("comissao_regras").update(payload).eq("id", editing.id)
+        : await supabase.from("comissao_regras").insert(payload);
+      if (error) throw new Error(friendlyDbError(error));
+    },
+    onSuccess: () => {
+      toast.success(editing ? "Faixa atualizada." : "Faixa cadastrada.");
+      qc.invalidateQueries({ queryKey: ["comissao_regras"] });
+      onOpenChange(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[460px]">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{editing ? "Editar faixa" : "Nova faixa"}</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4 py-2">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label>De (R$)</Label>
+        <div className="grid gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label className="text-xs">De (R$)</Label>
               <Input
-                className="font-mono"
-                value={vMin}
-                onChange={(e) => setVMin(maskMoney(e.target.value))}
                 inputMode="numeric"
-                placeholder="0,00"
+                value={min}
+                onChange={(e) => setMin(maskMoney(e.target.value))}
               />
             </div>
-            <div className="grid gap-2">
-              <Label>Até (R$)</Label>
+            <div className="grid gap-1.5">
+              <Label className="text-xs">Até (R$)</Label>
               <Input
-                className="font-mono"
-                value={semTeto ? "" : vMax}
-                onChange={(e) => setVMax(maskMoney(e.target.value))}
                 inputMode="numeric"
-                placeholder={semTeto ? "sem teto" : "0,00"}
+                value={semTeto ? "" : max}
                 disabled={semTeto}
+                onChange={(e) => setMax(maskMoney(e.target.value))}
               />
             </div>
           </div>
-
-          <label className="flex items-center gap-2 text-sm">
+          <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+            <Label className="text-sm">Sem limite superior</Label>
             <Switch checked={semTeto} onCheckedChange={setSemTeto} />
-            Sem teto (última faixa)
-          </label>
-
-          <div className="grid gap-2">
-            <Label>Percentual (%)</Label>
+          </div>
+          <div className="grid gap-1.5">
+            <Label className="text-xs">Percentual (%)</Label>
             <Input
-              className="font-mono"
+              inputMode="numeric"
               value={pct}
               onChange={(e) => setPct(maskPct(e.target.value))}
-              inputMode="decimal"
-              placeholder="0,000"
             />
           </div>
-
-          <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2">
-            <div className="text-sm font-medium">Ativa</div>
+          <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+            <Label className="text-sm">Faixa ativa</Label>
             <Switch checked={ativa} onCheckedChange={setAtiva} />
           </div>
+          <p className="text-xs text-muted-foreground">
+            {idVendedor
+              ? "Esta faixa vale apenas para o vendedor selecionado."
+              : "Esta faixa vale para todos os vendedores da loja."}
+          </p>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={submit} disabled={saving}>
-            {saving ? "Salvando…" : "Salvar"}
+          <Button onClick={() => salvar.mutate()} disabled={salvar.isPending}>
+            Salvar
           </Button>
         </DialogFooter>
       </DialogContent>
