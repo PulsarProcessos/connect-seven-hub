@@ -14,6 +14,111 @@ export type Database = {
   }
   public: {
     Tables: {
+      caixa_depositos: {
+        Row: {
+          conciliado: boolean
+          created_at: string
+          criado_por: string | null
+          data_deposito: string
+          id: string
+          id_caixa: string | null
+          id_conta_bancaria: string | null
+          id_extrato_lancamento: string | null
+          id_loja: string
+          numero_comprovante: string
+          observacao: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          conciliado?: boolean
+          created_at?: string
+          criado_por?: string | null
+          data_deposito?: string
+          id?: string
+          id_caixa?: string | null
+          id_conta_bancaria?: string | null
+          id_extrato_lancamento?: string | null
+          id_loja: string
+          numero_comprovante: string
+          observacao?: string | null
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          conciliado?: boolean
+          created_at?: string
+          criado_por?: string | null
+          data_deposito?: string
+          id?: string
+          id_caixa?: string | null
+          id_conta_bancaria?: string | null
+          id_extrato_lancamento?: string | null
+          id_loja?: string
+          numero_comprovante?: string
+          observacao?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caixa_depositos_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios_perfis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caixa_depositos_id_caixa_fkey"
+            columns: ["id_caixa"]
+            isOneToOne: false
+            referencedRelation: "caixas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caixa_depositos_id_conta_bancaria_fkey"
+            columns: ["id_conta_bancaria"]
+            isOneToOne: false
+            referencedRelation: "contas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caixa_depositos_id_conta_bancaria_fkey"
+            columns: ["id_conta_bancaria"]
+            isOneToOne: false
+            referencedRelation: "vw_saldos_contas"
+            referencedColumns: ["id_conta_bancaria"]
+          },
+          {
+            foreignKeyName: "caixa_depositos_id_extrato_lancamento_fkey"
+            columns: ["id_extrato_lancamento"]
+            isOneToOne: false
+            referencedRelation: "extrato_lancamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caixa_depositos_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caixa_depositos_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caixa_depositos_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
+          },
+        ]
+      }
       caixa_lancamentos: {
         Row: {
           created_at: string
@@ -24,6 +129,7 @@ export type Database = {
           id_caixa: string
           id_categoria: string | null
           id_cliente: string | null
+          id_conta_bancaria: string | null
           id_fornecedor: string | null
           id_loja: string
           tipo: Database["public"]["Enums"]["tipo_caixa_lancamento"]
@@ -38,6 +144,7 @@ export type Database = {
           id_caixa: string
           id_categoria?: string | null
           id_cliente?: string | null
+          id_conta_bancaria?: string | null
           id_fornecedor?: string | null
           id_loja: string
           tipo: Database["public"]["Enums"]["tipo_caixa_lancamento"]
@@ -52,6 +159,7 @@ export type Database = {
           id_caixa?: string
           id_categoria?: string | null
           id_cliente?: string | null
+          id_conta_bancaria?: string | null
           id_fornecedor?: string | null
           id_loja?: string
           tipo?: Database["public"]["Enums"]["tipo_caixa_lancamento"]
@@ -85,6 +193,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clientes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caixa_lancamentos_id_conta_bancaria_fkey"
+            columns: ["id_conta_bancaria"]
+            isOneToOne: false
+            referencedRelation: "contas_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caixa_lancamentos_id_conta_bancaria_fkey"
+            columns: ["id_conta_bancaria"]
+            isOneToOne: false
+            referencedRelation: "vw_saldos_contas"
+            referencedColumns: ["id_conta_bancaria"]
           },
           {
             foreignKeyName: "caixa_lancamentos_id_fornecedor_fkey"
@@ -122,17 +244,28 @@ export type Database = {
           created_at: string
           data_abertura: string
           data_fechamento: string | null
+          diferenca_caixa: number | null
+          dinheiro_apurado: number | null
           divergencia_abertura: number
           divergencia_fechamento: number | null
           fechado_por: string | null
           id: string
           id_loja: string
+          motivo_reabertura: string | null
           observacao: string | null
+          reaberto_em: string | null
+          reaberto_por: string | null
           saldo_final_calculado: number | null
           saldo_final_informado: number | null
           saldo_inicial: number
           saldo_inicial_esperado: number
           status: Database["public"]["Enums"]["status_caixa"]
+          total_depositado: number
+          total_entradas: number
+          total_saidas: number
+          total_sangrias: number
+          total_suprimentos: number
+          turno: string
           updated_at: string
         }
         Insert: {
@@ -140,17 +273,28 @@ export type Database = {
           created_at?: string
           data_abertura?: string
           data_fechamento?: string | null
+          diferenca_caixa?: number | null
+          dinheiro_apurado?: number | null
           divergencia_abertura?: number
           divergencia_fechamento?: number | null
           fechado_por?: string | null
           id?: string
           id_loja: string
+          motivo_reabertura?: string | null
           observacao?: string | null
+          reaberto_em?: string | null
+          reaberto_por?: string | null
           saldo_final_calculado?: number | null
           saldo_final_informado?: number | null
           saldo_inicial?: number
           saldo_inicial_esperado?: number
           status?: Database["public"]["Enums"]["status_caixa"]
+          total_depositado?: number
+          total_entradas?: number
+          total_saidas?: number
+          total_sangrias?: number
+          total_suprimentos?: number
+          turno?: string
           updated_at?: string
         }
         Update: {
@@ -158,17 +302,28 @@ export type Database = {
           created_at?: string
           data_abertura?: string
           data_fechamento?: string | null
+          diferenca_caixa?: number | null
+          dinheiro_apurado?: number | null
           divergencia_abertura?: number
           divergencia_fechamento?: number | null
           fechado_por?: string | null
           id?: string
           id_loja?: string
+          motivo_reabertura?: string | null
           observacao?: string | null
+          reaberto_em?: string | null
+          reaberto_por?: string | null
           saldo_final_calculado?: number | null
           saldo_final_informado?: number | null
           saldo_inicial?: number
           saldo_inicial_esperado?: number
           status?: Database["public"]["Enums"]["status_caixa"]
+          total_depositado?: number
+          total_entradas?: number
+          total_saidas?: number
+          total_sangrias?: number
+          total_suprimentos?: number
+          turno?: string
           updated_at?: string
         }
         Relationships: [
@@ -206,6 +361,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_resumo_lojas"
             referencedColumns: ["id_loja"]
+          },
+          {
+            foreignKeyName: "caixas_reaberto_por_fkey"
+            columns: ["reaberto_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios_perfis"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -417,6 +579,74 @@ export type Database = {
           },
         ]
       }
+      comprovantes: {
+        Row: {
+          caminho: string
+          content_type: string | null
+          created_at: string
+          enviado_por: string | null
+          id: string
+          id_loja: string
+          nome_arquivo: string
+          origem_id: string
+          origem_tipo: string
+          tamanho: number | null
+        }
+        Insert: {
+          caminho: string
+          content_type?: string | null
+          created_at?: string
+          enviado_por?: string | null
+          id?: string
+          id_loja: string
+          nome_arquivo: string
+          origem_id: string
+          origem_tipo: string
+          tamanho?: number | null
+        }
+        Update: {
+          caminho?: string
+          content_type?: string | null
+          created_at?: string
+          enviado_por?: string | null
+          id?: string
+          id_loja?: string
+          nome_arquivo?: string
+          origem_id?: string
+          origem_tipo?: string
+          tamanho?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comprovantes_enviado_por_fkey"
+            columns: ["enviado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios_perfis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comprovantes_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comprovantes_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comprovantes_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
+          },
+        ]
+      }
       conciliacao_extrato: {
         Row: {
           conciliado_por: string | null
@@ -582,6 +812,7 @@ export type Database = {
         Row: {
           created_at: string
           criado_por: string | null
+          data_competencia: string
           data_pagamento: string | null
           data_vencimento: string
           descricao: string
@@ -592,15 +823,18 @@ export type Database = {
           id_extrato_lancamento: string | null
           id_fornecedor: string | null
           id_loja: string
+          id_loja_rateio_origem: string | null
           id_venda_origem: string | null
           id_vendedor: string | null
           observacao: string | null
+          percentual_rateio: number | null
           status: Database["public"]["Enums"]["status_conta_pagar"]
           valor: number
         }
         Insert: {
           created_at?: string
           criado_por?: string | null
+          data_competencia?: string
           data_pagamento?: string | null
           data_vencimento: string
           descricao: string
@@ -611,15 +845,18 @@ export type Database = {
           id_extrato_lancamento?: string | null
           id_fornecedor?: string | null
           id_loja: string
+          id_loja_rateio_origem?: string | null
           id_venda_origem?: string | null
           id_vendedor?: string | null
           observacao?: string | null
+          percentual_rateio?: number | null
           status?: Database["public"]["Enums"]["status_conta_pagar"]
           valor: number
         }
         Update: {
           created_at?: string
           criado_por?: string | null
+          data_competencia?: string
           data_pagamento?: string | null
           data_vencimento?: string
           descricao?: string
@@ -630,9 +867,11 @@ export type Database = {
           id_extrato_lancamento?: string | null
           id_fornecedor?: string | null
           id_loja?: string
+          id_loja_rateio_origem?: string | null
           id_venda_origem?: string | null
           id_vendedor?: string | null
           observacao?: string | null
+          percentual_rateio?: number | null
           status?: Database["public"]["Enums"]["status_conta_pagar"]
           valor?: number
         }
@@ -701,6 +940,27 @@ export type Database = {
             referencedColumns: ["id_loja"]
           },
           {
+            foreignKeyName: "contas_pagar_id_loja_rateio_origem_fkey"
+            columns: ["id_loja_rateio_origem"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_id_loja_rateio_origem_fkey"
+            columns: ["id_loja_rateio_origem"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_id_loja_rateio_origem_fkey"
+            columns: ["id_loja_rateio_origem"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
+          },
+          {
             foreignKeyName: "contas_pagar_id_venda_origem_fkey"
             columns: ["id_venda_origem"]
             isOneToOne: false
@@ -727,6 +987,7 @@ export type Database = {
         Row: {
           created_at: string
           criado_por: string | null
+          data_competencia: string
           data_recebimento: string | null
           data_vencimento: string
           descricao: string
@@ -747,6 +1008,7 @@ export type Database = {
         Insert: {
           created_at?: string
           criado_por?: string | null
+          data_competencia?: string
           data_recebimento?: string | null
           data_vencimento?: string
           descricao: string
@@ -767,6 +1029,7 @@ export type Database = {
         Update: {
           created_at?: string
           criado_por?: string | null
+          data_competencia?: string
           data_recebimento?: string | null
           data_vencimento?: string
           descricao?: string
@@ -1433,6 +1696,7 @@ export type Database = {
           id_tipo_loja: string | null
           nome_fantasia: string
           razao_social: string
+          saldo_inicial_caixa: number
           tipo_socio: Database["public"]["Enums"]["tipo_socio"]
         }
         Insert: {
@@ -1443,6 +1707,7 @@ export type Database = {
           id_tipo_loja?: string | null
           nome_fantasia: string
           razao_social: string
+          saldo_inicial_caixa?: number
           tipo_socio?: Database["public"]["Enums"]["tipo_socio"]
         }
         Update: {
@@ -1453,6 +1718,7 @@ export type Database = {
           id_tipo_loja?: string | null
           nome_fantasia?: string
           razao_social?: string
+          saldo_inicial_caixa?: number
           tipo_socio?: Database["public"]["Enums"]["tipo_socio"]
         }
         Relationships: [
@@ -1469,6 +1735,7 @@ export type Database = {
         Row: {
           created_at: string
           criado_por: string | null
+          data_competencia: string
           data_liquidacao: string | null
           data_movimento: string
           descricao: string
@@ -1488,6 +1755,7 @@ export type Database = {
         Insert: {
           created_at?: string
           criado_por?: string | null
+          data_competencia?: string
           data_liquidacao?: string | null
           data_movimento: string
           descricao: string
@@ -1507,6 +1775,7 @@ export type Database = {
         Update: {
           created_at?: string
           criado_por?: string | null
+          data_competencia?: string
           data_liquidacao?: string | null
           data_movimento?: string
           descricao?: string
@@ -1603,6 +1872,81 @@ export type Database = {
           },
           {
             foreignKeyName: "movimentacoes_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_resumo_lojas"
+            referencedColumns: ["id_loja"]
+          },
+        ]
+      }
+      orcamentos: {
+        Row: {
+          ano: number
+          created_at: string
+          criado_por: string | null
+          id: string
+          id_categoria: string
+          id_loja: string
+          mes: number
+          observacao: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          ano: number
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          id_categoria: string
+          id_loja: string
+          mes: number
+          observacao?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          ano?: number
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          id_categoria?: string
+          id_loja?: string
+          mes?: number
+          observacao?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orcamentos_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios_perfis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orcamentos_id_categoria_fkey"
+            columns: ["id_categoria"]
+            isOneToOne: false
+            referencedRelation: "dre_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orcamentos_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orcamentos_id_loja_fkey"
+            columns: ["id_loja"]
+            isOneToOne: false
+            referencedRelation: "vw_lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orcamentos_id_loja_fkey"
             columns: ["id_loja"]
             isOneToOne: false
             referencedRelation: "vw_resumo_lojas"
@@ -1798,6 +2142,17 @@ export type Database = {
       }
     }
     Views: {
+      vw_dre_competencia: {
+        Row: {
+          categoria: string | null
+          data_competencia: string | null
+          id_categoria: string | null
+          id_loja: string | null
+          natureza: string | null
+          valor: number | null
+        }
+        Relationships: []
+      }
       vw_extrato_financeiro: {
         Row: {
           categoria_dre: string | null
@@ -1818,6 +2173,22 @@ export type Database = {
             | Database["public"]["Enums"]["status_conciliacao"]
             | null
           tipo: string | null
+          valor: number | null
+        }
+        Relationships: []
+      }
+      vw_fluxo_caixa: {
+        Row: {
+          data_competencia: string | null
+          data_realizacao: string | null
+          data_vencimento: string | null
+          descricao: string | null
+          id: string | null
+          id_categoria: string | null
+          id_loja: string | null
+          origem: string | null
+          realizado: boolean | null
+          status: string | null
           valor: number | null
         }
         Relationships: []
@@ -1844,6 +2215,18 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vw_orcado_realizado: {
+        Row: {
+          ano: number | null
+          id_categoria: string | null
+          id_loja: string | null
+          mes: number | null
+          orcado: number | null
+          realizado: number | null
+          variacao_pct: number | null
+        }
+        Relationships: []
       }
       vw_resumo_lojas: {
         Row: {
@@ -1996,6 +2379,7 @@ export type Database = {
         }[]
       }
       fn_atualizar_status_atrasados: { Args: never; Returns: undefined }
+      fn_recalcular_caixa: { Args: { p_caixa: string }; Returns: undefined }
     }
     Enums: {
       app_role: "administrador" | "master" | "gerente" | "analista" | "operador"
