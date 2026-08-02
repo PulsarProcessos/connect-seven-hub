@@ -39,6 +39,8 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { ComprovantesPanel } from "@/components/comprovantes-panel";
+
 
 export const Route = createFileRoute("/_authenticated/contas-pagar")({
   head: () => ({
