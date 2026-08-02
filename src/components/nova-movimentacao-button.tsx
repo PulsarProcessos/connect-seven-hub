@@ -28,7 +28,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { EntityCombobox } from "@/components/entity-combobox";
 import { supabase } from "@/integrations/supabase/client";
+
 import { useAuth } from "@/lib/auth-context";
 import { maskMoney, parseMoney, friendlyDbError } from "@/lib/money";
 
