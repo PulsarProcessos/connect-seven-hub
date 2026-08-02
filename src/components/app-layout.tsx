@@ -66,6 +66,7 @@ const GROUPS: NavGroup[] = [
     items: [
       { label: "Vendas", to: "/dashboard-vendas", icon: BarChart3, roles: ["administrador", "master", "gerente", "analista", "operador"] },
       { label: "Financeiro", to: "/dashboard-financeiro", icon: LayoutDashboard, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+      { label: "Orçado x Realizado", to: "/orcado-realizado", icon: Target, roles: ["administrador", "master", "gerente", "analista"] },
     ],
   },
   {
@@ -84,8 +85,10 @@ const GROUPS: NavGroup[] = [
       { label: "Contas a Pagar", to: "/contas-pagar", icon: Wallet, roles: ["administrador", "master", "gerente", "analista", "operador"] },
       { label: "Contas a Receber", to: "/contas-receber", icon: Receipt, roles: ["administrador", "master", "gerente", "analista", "operador"] },
       { label: "Extrato Financeiro", to: "/extrato-financeiro", icon: ListTree, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+      { label: "Orçamento", to: "/orcamento", icon: Target, roles: ["administrador", "gerente"] },
     ],
   },
+
   {
     label: "Cadastros",
     items: [
