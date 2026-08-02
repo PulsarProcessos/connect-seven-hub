@@ -21,6 +21,9 @@ import {
   ListTree,
   CreditCard,
   Percent,
+  Truck,
+  UserSquare2,
+
 } from "lucide-react";
 import { Connect7Logo } from "./connect7-logo";
 import { NovaMovimentacaoButton } from "./nova-movimentacao-button";
