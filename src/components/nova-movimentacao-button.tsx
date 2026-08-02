@@ -165,7 +165,8 @@ function MovimentacaoDialog({
       const valorNum = parseMoney(valor);
       if (!(valorNum > 0)) throw new Error("Valor deve ser maior que zero");
       if (tipo !== "transferencia" && !idCategoria) throw new Error("Selecione a categoria");
-      if (!idConta) throw new Error("Selecione a conta bancária");
+      if (tipo === "transferencia" && !idConta)
+        throw new Error("Selecione a conta de origem");
       if (tipo === "transferencia") {
         if (!idContaDestino) throw new Error("Selecione a conta de destino");
         if (idConta === idContaDestino)
@@ -179,7 +180,7 @@ function MovimentacaoDialog({
         descricao: descricao.trim(),
         valor: valorNum,
         id_categoria: tipo === "transferencia" ? null : idCategoria,
-        id_conta_bancaria: idConta,
+        id_conta_bancaria: idConta || null,
         id_conta_destino: tipo === "transferencia" ? idContaDestino : null,
         criado_por: profile?.id ?? null,
       };
@@ -307,7 +308,8 @@ function MovimentacaoDialog({
           {tipo !== "transferencia" ? (
             <div className="grid gap-2">
               <Label>
-                {tipo === "venda" ? "Conta de crédito" : "Conta de débito"}
+                {tipo === "venda" ? "Conta de crédito" : "Conta de débito"}{" "}
+                <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
               </Label>
               <Select
                 value={idConta}
@@ -320,7 +322,7 @@ function MovimentacaoDialog({
                       !idLoja
                         ? "Selecione a loja primeiro"
                         : contas.length === 0
-                          ? "Nenhuma conta cadastrada"
+                          ? "Nenhuma conta cadastrada para esta loja"
                           : "Selecione a conta"
                     }
                   />
