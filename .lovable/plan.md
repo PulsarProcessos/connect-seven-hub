@@ -1,43 +1,74 @@
 ## Objetivo
 
-Corrigir os erros de cadastro relatados, construir o Dashboard Financeiro (DRE interativa + Fluxo de Caixa) e revisar o isolamento de dados por loja/nível de usuário.
+Ampliar o Connect 7 com: baixa/edição de lançamentos no Extrato Financeiro, aba Contas a Receber, importação de OFX com classificação lançamento a lançamento, novo menu Cadastros (com Fornecedores e Clientes), comissões por loja e por vendedor com geração automática em Contas a Pagar, e módulo de Caixa com controle de saldos bancários.
 
-## 1. Correção dos cadastros com erro
+## 1. Banco de dados (uma migração, apresentada para aprovação)
 
-Verificado no código e no banco:
+Novas tabelas:
+- `fornecedores` e `clientes` — nome, documento (CPF/CNPJ), telefone, e-mail, observação, ativo, `id_loja` (nulo = disponível a todas as lojas).
+- `caixas` — loja, operador, data/hora de abertura e fechamento, saldo inicial informado, saldo final informado, saldo calculado, divergência, status (aberto/fechado).
+- `caixa_lancamentos` — caixa, tipo (entrada/saída/sangria/suprimento), valor, descrição, categoria, cliente/fornecedor, forma de pagamento.
+- `comissao_regras` — substitui/estende as faixas: vínculo por loja e (opcional) por vendedor, com faixas (valor mín/máx, percentual), vigência e ativo.
+- `contas_receber` — origem (venda importada, caixa, lançamento manual), loja, cliente, categoria, descrição, valor previsto, valor recebido, vencimento, data de recebimento, conta bancária, status.
 
-- **Nova saída (Despesa/Venda/Transferência)** — o botão "Novo" converte o valor com `Number(valor.replace(",", "."))`. Se o usuário digita no formato brasileiro com milhar (`1.500,00`), o resultado é inválido e o lançamento é recusado. Correção: aplicar a mesma máscara monetária já usada em Comissões (digitação da direita para a esquerda) e um parser único compartilhado.
-- Ainda no mesmo formulário: quando o administrador está com "Todas as lojas" selecionado, o campo Loja abre vazio e o erro só aparece ao salvar — passará a bloquear o botão com aviso claro.
-- **Comissões** — a estrutura da tabela, as regras de acesso e as permissões estão corretas no banco (apenas administrador grava). A causa exata do erro ainda **não está confirmada**; primeira tarefa da implementação: reproduzir o cadastro de faixa e capturar a mensagem real (validação de percentual, faixa sobreposta ou permissão), e então corrigir. As mensagens de erro passarão a exibir texto explicativo em vez do erro técnico do banco.
+Colunas novas:
+- `contas_bancarias`: `saldo_inicial`, `data_saldo_inicial`.
+- `vendas_ucase`: `id_vendedor`.
+- `contas_pagar`: `id_fornecedor`, `id_venda_origem` (para a comissão gerada).
+- `movimentacoes`: `id_fornecedor`, `id_cliente`, `pago` / `data_liquidacao`.
+- `extrato_lancamentos`: `id_categoria`, `id_fornecedor`, `id_cliente`, `classificado`.
 
-## 2. Varredura dos demais módulos
+Regras de acesso (RLS) e GRANTs em todas as tabelas novas, seguindo o mesmo padrão por loja já usado (administrador/master veem tudo; demais só a própria loja). Views de saldo por conta bancária e de contas a receber consolidadas, com `security_invoker`.
 
-Passar por Financeiras, Lojas/Tipos de loja, Contas bancárias, Cartões, Categorias (DRE), Usuários, Contas a Pagar, Importação de Vendas, Importação de Extrato e Conciliação, testando criar/editar/excluir em cada um. Para cada falha encontrada: corrigir e padronizar máscaras (moeda, percentual, data) e mensagens de erro. Entrego uma lista do que foi verificado e do que foi corrigido.
+## 2. Extrato Financeiro
 
-## 3. Dashboard Financeiro (`/dashboard-financeiro`)
+- Clique na linha abre um painel lateral com os detalhes do lançamento (entrada ou saída), permitindo editar descrição, categoria, cliente/fornecedor, conta bancária, data e valor.
+- Botão "Marcar como recebido" / "Marcar como pago", com data de liquidação; status visível na listagem (coluna com etiqueta Pago/Recebido/Em aberto).
+- Nova coluna **Saldo**: com uma loja + conta selecionadas mostra o saldo corrido real da conta (a partir do saldo inicial); com "todas as lojas" ou sem conta específica, mostra o saldo somado.
+- Reflexo imediato na DRE e no Fluxo de Caixa (realizado x previsto).
 
-Hoje a página é apenas um marcador. Será reconstruída com duas seções em abas:
+## 3. Contas a Receber (nova tela)
 
-**Aba DRE**
-- Layout em duas colunas: à esquerda a DRE em tabela (Categoria | Valor | % sobre a receita), agrupada por grupo DRE com totais e possibilidade de expandir/recolher.
-- Ao clicar em uma categoria (ou em um grupo), a tabela à direita mostra os lançamentos daquela categoria no período (data, descrição, loja, conta, valor), com total.
-- Linha de receita bruta, total de despesas e resultado no rodapé.
+- Lista todas as entradas: vendas importadas, recebimentos de caixa e lançamentos manuais.
+- Filtros de mês/ano, loja, status e cliente.
+- Clique no lançamento abre os detalhes; ação "Dar como recebido" (com data, valor recebido e conta bancária de crédito).
+- Totais de recebido, a receber e vencido no topo.
 
-**Aba Fluxo de Caixa**
-- Panorama de **a receber** (vendas com recebimento previsto) e **a pagar** (contas a pagar), com saldo projetado.
-- Quebra por semana/vencimento dentro do período, com marcação de vencidos, e listagem dos itens.
+## 4. Importação OFX com classificação
 
-**Filtros**: seletor de **mês** e **ano** em todas as seções (padrão: mês corrente), mais o filtro de loja já existente na barra superior.
+- A tela de Extrato Bancário deixa de ter as seções e passa a ter um botão **Importar arquivo**.
+- O botão abre um diálogo pedindo **Loja** e **Conta bancária** (a lista de contas é recarregada conforme a loja escolhida), e em seguida o arquivo.
+- Após a leitura, uma tela de conciliação em duas colunas: à esquerda o lançamento do banco (data, descrição, valor), à direita a correspondência no sistema.
+- Quando não houver correspondência, a coluna da direita oferece criar o lançamento com: Fornecedor (saída) ou Cliente (entrada), Categoria e Descrição — tudo em listas com busca por digitação.
+- Duplicidade por FITID continua sendo detectada e marcada.
 
-## 4. Isolamento por loja e por nível
+## 5. Menu Cadastros (em Movimentação Bancária)
 
-- Revisão das regras de acesso no banco tabela por tabela (vendas, extrato, movimentações, contas a pagar, contas bancárias, comissões, categorias, usuários, importações), confirmando que cada consulta é limitada à loja do usuário e que administrador/master enxergam todas.
-- Revisão do lado da tela: garantir que nenhuma listagem, seletor de loja ou consulta ignore o escopo, e que gerente/analista/operador nunca recebam a lista completa de lojas nem consigam lançar em outra loja.
-- Ajuste das telas novas (DRE e Fluxo de Caixa) para respeitarem o mesmo escopo.
-- Ao final, rodar a verificação de segurança do banco e relatar o resultado.
+Novo grupo suspenso "Cadastros" com: Fornecedores, Clientes, Categorias, Contas Bancárias, Comissões, Financeiras e Cartões. As telas já existentes são **movidas** de Configurações (que fica apenas com Lojas e Usuários). Fornecedores e Clientes são telas novas com CRUD, busca e status ativo/inativo.
+
+Nos formulários de entrada e saída (botão "Novo" e demais lançamentos), o campo Fornecedor/Cliente vira uma lista suspensa com busca por digitação.
+
+## 6. Vendas › Comissões
+
+- Cadastro de comissões passa a permitir regras **por loja** e **por vendedor** (usuários cadastrados), mantendo as faixas por valor.
+- Na importação de vendas, o usuário seleciona **o vendedor do lote**; todas as linhas importadas recebem esse vendedor.
+- Ao importar, o sistema cria automaticamente em Contas a Pagar um lançamento de comissão por venda, com descrição referenciando a venda (número/data/valor) e o fornecedor/beneficiário sendo o vendedor.
+- Nova seção "Comissões" em Vendas: acompanhamento do desempenho por loja e por vendedor (total vendido, comissão apurada, comissão paga/em aberto), com filtros de mês e ano.
+
+## 7. Vendas › Caixa
+
+- Abertura de caixa informando o saldo inicial; um caixa aberto por loja por vez.
+- Divergência entre saldo informado e saldo esperado é exibida na tela com aviso de que precisa ser resolvida.
+- Lançamentos do caixa (entradas, saídas, sangria, suprimento) ficam registrados no caixa aberto, com saldo corrente sempre visível.
+- No fechamento, informa o saldo final; os lançamentos geram automaticamente os registros correspondentes em Contas a Pagar e Contas a Receber.
+
+## 8. Isolamento por loja
+
+Todas as telas e tabelas novas respeitam o escopo por loja/nível já existente. Ao final rodo a verificação de segurança do banco e relato o resultado.
 
 ## Detalhes técnicos
 
-- Utilitário compartilhado de máscara/parse monetário em `src/lib/`, reaproveitado no botão "Novo", Contas a Pagar e Comissões.
-- Dashboard Financeiro em `src/routes/_authenticated/dashboard-financeiro.tsx`, com componentes separados para DRE e Fluxo de Caixa; dados via a view financeira já existente (`vw_extrato_financeiro`) mais `vendas_ucase` e `contas_pagar`, consultados com React Query.
-- Correções de regras de acesso, se necessárias, entram como migração do banco (apresentada para aprovação antes de rodar).
+- Migração única com tabelas, colunas, GRANTs, políticas RLS e views de saldo; triggers para recalcular saldo de conta e status de contas a receber.
+- Componentes novos em `src/components/` (combobox com busca, painel de detalhe de lançamento, diálogo de importação OFX) e rotas novas em `src/routes/_authenticated/` (`contas-receber`, `fornecedores`, `clientes`, `caixa`, `vendas-comissoes`).
+- Reaproveitamento de `src/lib/money.ts` para máscaras e mensagens de erro; consultas com React Query.
+- Ajuste do menu em `src/components/app-layout.tsx` e das permissões em `src/lib/auth-context.tsx`.
