@@ -1,74 +1,72 @@
 ## Objetivo
 
-Ampliar o Connect 7 com: baixa/edição de lançamentos no Extrato Financeiro, aba Contas a Receber, importação de OFX com classificação lançamento a lançamento, novo menu Cadastros (com Fornecedores e Clientes), comissões por loja e por vendedor com geração automática em Contas a Pagar, e módulo de Caixa com controle de saldos bancários.
+Evoluir o Caixa (depósito em lotérica, comprovantes por foto, reabertura/exclusão de fechamentos), anexar comprovantes em Contas a Pagar/Receber/Extrato, reestruturar Fluxo de Caixa (3 visões de data) e DRE (por competência), e criar o módulo de Orçamento com a seção Orçado x Realizado no Dashboard.
 
-## 1. Banco de dados (uma migração, apresentada para aprovação)
+## 1. Banco de dados (uma migração)
+
+Verificado hoje no schema: não existem colunas de comprovante, nem data de competência, nem tabela de orçamento — tudo abaixo é novo.
 
 Novas tabelas:
-- `fornecedores` e `clientes` — nome, documento (CPF/CNPJ), telefone, e-mail, observação, ativo, `id_loja` (nulo = disponível a todas as lojas).
-- `caixas` — loja, operador, data/hora de abertura e fechamento, saldo inicial informado, saldo final informado, saldo calculado, divergência, status (aberto/fechado).
-- `caixa_lancamentos` — caixa, tipo (entrada/saída/sangria/suprimento), valor, descrição, categoria, cliente/fornecedor, forma de pagamento.
-- `comissao_regras` — substitui/estende as faixas: vínculo por loja e (opcional) por vendedor, com faixas (valor mín/máx, percentual), vigência e ativo.
-- `contas_receber` — origem (venda importada, caixa, lançamento manual), loja, cliente, categoria, descrição, valor previsto, valor recebido, vencimento, data de recebimento, conta bancária, status.
+- `comprovantes` — vínculo polimórfico (tipo de origem + id da origem), loja, caminho do arquivo no storage, nome, tamanho, quem enviou. Serve para caixa, contas a pagar, contas a receber e movimentações.
+- `caixa_depositos` — caixa, loja, nº do comprovante, valor depositado, data, conta bancária de destino, status de conciliação, id do lançamento do extrato conciliado.
+- `orcamentos` — loja, categoria da DRE, ano, mês, valor orçado, observação (único por loja+categoria+mês).
 
 Colunas novas:
-- `contas_bancarias`: `saldo_inicial`, `data_saldo_inicial`.
-- `vendas_ucase`: `id_vendedor`.
-- `contas_pagar`: `id_fornecedor`, `id_venda_origem` (para a comissão gerada).
-- `movimentacoes`: `id_fornecedor`, `id_cliente`, `pago` / `data_liquidacao`.
-- `extrato_lancamentos`: `id_categoria`, `id_fornecedor`, `id_cliente`, `classificado`.
+- `caixas`: `turno`, `total_sangrias`, `total_suprimentos`, `total_depositado`, `dinheiro_apurado`, `diferenca_caixa`, `reaberto_por`, `reaberto_em`, `motivo_reabertura`.
+- `caixa_lancamentos`: `id_conta_bancaria` (obrigatório quando a forma de pagamento for PIX, transferência ou depósito bancário — validado por trigger).
+- `contas_pagar`, `contas_receber`, `movimentacoes`: `data_competencia` (preenchida com a data atual do registro nas linhas existentes).
+- `contas_pagar`: `id_loja_rateio_origem` e `percentual_rateio`, para despesa rateada de outra loja/matriz aparecer proporcional na DRE de cada loja.
 
-Regras de acesso (RLS) e GRANTs em todas as tabelas novas, seguindo o mesmo padrão por loja já usado (administrador/master veem tudo; demais só a própria loja). Views de saldo por conta bancária e de contas a receber consolidadas, com `security_invoker`.
+Bucket de storage privado `comprovantes`, com políticas por loja (mesmo padrão `can_access_loja`), aceitando foto tirada pelo celular.
 
-## 2. Extrato Financeiro
+Regras de acesso: administrador e gerente podem reabrir caixa fechado, editar lançamentos de caixa fechado e excluir fechamentos; operador só opera o próprio caixa aberto. Trigger recalcula sangrias, suprimentos, depósitos, dinheiro apurado e diferença a cada lançamento.
 
-- Clique na linha abre um painel lateral com os detalhes do lançamento (entrada ou saída), permitindo editar descrição, categoria, cliente/fornecedor, conta bancária, data e valor.
-- Botão "Marcar como recebido" / "Marcar como pago", com data de liquidação; status visível na listagem (coluna com etiqueta Pago/Recebido/Em aberto).
-- Nova coluna **Saldo**: com uma loja + conta selecionadas mostra o saldo corrido real da conta (a partir do saldo inicial); com "todas as lojas" ou sem conta específica, mostra o saldo somado.
-- Reflexo imediato na DRE e no Fluxo de Caixa (realizado x previsto).
+Views:
+- `vw_fluxo_caixa` — une Contas a Pagar, Contas a Receber e recebíveis de cartão/financeira (usando a **data prevista de repasse do adquirente**, não a data da venda), com as três datas (competência, vencimento, realização) e marcação realizado/projetado, por loja.
+- `vw_dre_competencia` — receita (vendas), despesas (pagar), comissões e rateios, agrupados por categoria da DRE e **data de competência**, por loja e consolidado.
+- `vw_orcado_realizado` — orçado por categoria/loja/mês cruzado com o realizado da DRE, com variação em % e tolerante a loja sem orçamento (mostra realizado com orçado zero, sem quebrar).
 
-## 3. Contas a Receber (nova tela)
+Observação: não existe módulo de estoque no sistema, então o **CMV** entra na DRE pelas categorias do grupo de custo lançadas em Contas a Pagar. Um CMV vindo de estoque exigiria um módulo novo — fora deste escopo.
 
-- Lista todas as entradas: vendas importadas, recebimentos de caixa e lançamentos manuais.
-- Filtros de mês/ano, loja, status e cliente.
-- Clique no lançamento abre os detalhes; ação "Dar como recebido" (com data, valor recebido e conta bancária de crédito).
-- Totais de recebido, a receber e vencido no topo.
+## 2. Caixa (revisão + novidades)
 
-## 4. Importação OFX com classificação
+- Abertura por **loja e turno**, com saldo inicial; um caixa aberto por loja/turno.
+- Painel do caixa com blocos: Suprimentos, Sangrias, Depósitos, Dinheiro apurado e **Diferença de caixa**, sempre visíveis.
+- **Depósito na lotérica**: nº do comprovante, valor, data, conta bancária de destino e **upload/foto do comprovante** (câmera direta no celular/tablet). Cada depósito gera um lançamento esperado a conciliar.
+- Lançamentos com forma de pagamento PIX / transferência / depósito bancário passam a exigir a **conta bancária** do recebimento.
+- **Fechamento**: informa dinheiro apurado, mostra a diferença calculada e permite anexar a foto do comprovante do depósito antes de concluir.
+- **Reabertura e exclusão**: administrador e gerente veem botões "Reabrir caixa" (com motivo), "Editar lançamento" e "Excluir fechamento", com confirmação; o histórico de reabertura fica registrado.
 
-- A tela de Extrato Bancário deixa de ter as seções e passa a ter um botão **Importar arquivo**.
-- O botão abre um diálogo pedindo **Loja** e **Conta bancária** (a lista de contas é recarregada conforme a loja escolhida), e em seguida o arquivo.
-- Após a leitura, uma tela de conciliação em duas colunas: à esquerda o lançamento do banco (data, descrição, valor), à direita a correspondência no sistema.
-- Quando não houver correspondência, a coluna da direita oferece criar o lançamento com: Fornecedor (saída) ou Cliente (entrada), Categoria e Descrição — tudo em listas com busca por digitação.
-- Duplicidade por FITID continua sendo detectada e marcada.
+## 3. Conciliação bancária
 
-## 5. Menu Cadastros (em Movimentação Bancária)
+Os depósitos de lotérica entram na lista de itens esperados da conciliação (por valor, data e conta), podendo casar com o lançamento do extrato importado; ao conciliar, o depósito muda para "conciliado".
 
-Novo grupo suspenso "Cadastros" com: Fornecedores, Clientes, Categorias, Contas Bancárias, Comissões, Financeiras e Cartões. As telas já existentes são **movidas** de Configurações (que fica apenas com Lojas e Usuários). Fornecedores e Clientes são telas novas com CRUD, busca e status ativo/inativo.
+## 4. Comprovantes em Contas a Pagar, Contas a Receber e Extrato Financeiro
 
-Nos formulários de entrada e saída (botão "Novo" e demais lançamentos), o campo Fornecedor/Cliente vira uma lista suspensa com busca por digitação.
+Em cada tela, o detalhe do lançamento ganha uma área "Comprovantes": upload (arquivo ou foto), lista de anexos, visualização em nova aba e exclusão. Ícone de clipe na listagem indica quem já tem comprovante.
 
-## 6. Vendas › Comissões
+## 5. Fluxo de Caixa
 
-- Cadastro de comissões passa a permitir regras **por loja** e **por vendedor** (usuários cadastrados), mantendo as faixas por valor.
-- Na importação de vendas, o usuário seleciona **o vendedor do lote**; todas as linhas importadas recebem esse vendedor.
-- Ao importar, o sistema cria automaticamente em Contas a Pagar um lançamento de comissão por venda, com descrição referenciando a venda (número/data/valor) e o fornecedor/beneficiário sendo o vendedor.
-- Nova seção "Comissões" em Vendas: acompanhamento do desempenho por loja e por vendedor (total vendido, comissão apurada, comissão paga/em aberto), com filtros de mês e ano.
+- Seletor de base de data: **Competência / Vencimento / Realização** (padrão: Realização).
+- Visão **Realizado x Projetado** por mês, filtrável por loja (e consolidado do grupo, com CNPJ).
+- Recebíveis de cartão projetados pela data prevista de repasse.
+- Saldo inicial por loja configurável, usado no fechamento de mês (saldo inicial + entradas − saídas = saldo final que vira inicial do mês seguinte).
 
-## 7. Vendas › Caixa
+## 6. DRE (Financeiro)
 
-- Abertura de caixa informando o saldo inicial; um caixa aberto por loja por vez.
-- Divergência entre saldo informado e saldo esperado é exibida na tela com aviso de que precisa ser resolvida.
-- Lançamentos do caixa (entradas, saídas, sangria, suprimento) ficam registrados no caixa aberto, com saldo corrente sempre visível.
-- No fechamento, informa o saldo final; os lançamentos geram automaticamente os registros correspondentes em Contas a Pagar e Contas a Receber.
+- Passa a ser montada por **data de competência**.
+- Linhas: Receita (vendas), CMV, Despesas (contas a pagar) e Comissões.
+- **Drill-down por loja** e coluna de **comparação entre lojas** lado a lado, com consolidado do grupo.
+- Despesa rateada aparece proporcionalmente em cada loja conforme o percentual cadastrado.
 
-## 8. Isolamento por loja
+## 7. Orçamento e Orçado x Realizado
 
-Todas as telas e tabelas novas respeitam o escopo por loja/nível já existente. Ao final rodo a verificação de segurança do banco e relato o resultado.
+- **Movimentação Bancária › Orçamento**: tela para cadastrar o valor orçado por **categoria da DRE**, por loja, mês a mês (grade ano inteiro, cópia do mês anterior e do ano anterior).
+- **Dashboard › Orçado x Realizado**: nova aba ao lado de Financeiro e Fluxo de Caixa, com orçado, realizado e **variação em %** por categoria e por loja, no mês/ano escolhido; loja sem orçamento aparece com orçado zerado e aviso, sem quebrar o relatório.
 
 ## Detalhes técnicos
 
-- Migração única com tabelas, colunas, GRANTs, políticas RLS e views de saldo; triggers para recalcular saldo de conta e status de contas a receber.
-- Componentes novos em `src/components/` (combobox com busca, painel de detalhe de lançamento, diálogo de importação OFX) e rotas novas em `src/routes/_authenticated/` (`contas-receber`, `fornecedores`, `clientes`, `caixa`, `vendas-comissoes`).
-- Reaproveitamento de `src/lib/money.ts` para máscaras e mensagens de erro; consultas com React Query.
-- Ajuste do menu em `src/components/app-layout.tsx` e das permissões em `src/lib/auth-context.tsx`.
+- Uma migração com tabelas, colunas, GRANTs, RLS, triggers de recálculo do caixa e as três views com `security_invoker`.
+- Bucket privado `comprovantes` + componente reutilizável `ComprovantesPanel` (input `capture="environment"` para foto).
+- Novas rotas: `orcamento` e `dashboard-orcado-realizado`; ajustes em `caixa.tsx`, `dashboard-financeiro.tsx`, `contas-pagar.tsx`, `contas-receber.tsx`, `extrato-financeiro.tsx`, `conciliacao-panel.tsx`, `app-layout.tsx` e `auth-context.tsx`.
+- Ao final, rodo a verificação de segurança do banco e reporto o resultado.
