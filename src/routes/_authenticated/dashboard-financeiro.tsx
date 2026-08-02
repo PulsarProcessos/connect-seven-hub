@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowDownRight,
@@ -311,9 +311,8 @@ function DreSection({
                 grupos.map((g) => {
                   const aberto = !fechados[g.key];
                   return (
-                    <>
+                    <Fragment key={g.key}>
                       <TableRow
-                        key={g.key}
                         className="cursor-pointer bg-muted/40 font-medium"
                         onClick={() => {
                           setFechados((f) => ({ ...f, [g.key]: aberto }));
@@ -356,7 +355,7 @@ function DreSection({
                             </TableCell>
                           </TableRow>
                         ))}
-                    </>
+                    </Fragment>
                   );
                 })
               )}

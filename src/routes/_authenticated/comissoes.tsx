@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { friendlyDbError } from "@/lib/money";
 
 export const Route = createFileRoute("/_authenticated/comissoes")({
   head: () => ({
@@ -160,7 +161,7 @@ function ComissoesPage() {
 
   const remover = async (f: Faixa) => {
     const { error } = await supabase.from("comissao_faixas").delete().eq("id", f.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     toast.success("Faixa removida");
     load(lojaSel);
   };
@@ -443,7 +444,7 @@ function FaixaDialog({
       : await supabase.from("comissao_faixas").insert(payload);
     setSaving(false);
 
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     toast.success(editing ? "Faixa atualizada" : "Faixa criada");
     onOpenChange(false);
     onSaved();
