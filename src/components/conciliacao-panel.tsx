@@ -109,6 +109,7 @@ export function ConciliacaoPanel({ lojaId }: { lojaId: string }) {
       setVendas([]);
       setContas([]);
       setLancamentos([]);
+      setDepositos([]);
       return;
     }
     setLoading(true);
@@ -117,7 +118,7 @@ export function ConciliacaoPanel({ lojaId }: { lojaId: string }) {
     } catch {
       /* função pode não existir ainda; segue */
     }
-    const [v, cp, l, cb] = await Promise.all([
+    const [v, cp, l, cb, dep] = await Promise.all([
       supabase
         .from("vendas_ucase")
         .select(
@@ -140,6 +141,12 @@ export function ConciliacaoPanel({ lojaId }: { lojaId: string }) {
         .eq("conciliado", false)
         .order("data_lancamento"),
       supabase.from("contas_bancarias").select("id, banco, agencia, conta"),
+      supabase
+        .from("caixa_depositos")
+        .select("id, id_loja, data_deposito, numero_comprovante, valor, id_conta_bancaria")
+        .eq("id_loja", lojaId)
+        .eq("conciliado", false)
+        .order("data_deposito"),
     ]);
 
     const cmap = new Map(
@@ -150,6 +157,7 @@ export function ConciliacaoPanel({ lojaId }: { lojaId: string }) {
     );
     setVendas((v.data ?? []) as Venda[]);
     setContas((cp.data ?? []) as ContaPagar[]);
+    setDepositos((dep.data ?? []) as Deposito[]);
     setLancamentos(
       ((l.data ?? []) as Lancamento[]).map((r) => ({
         ...r,
@@ -158,8 +166,34 @@ export function ConciliacaoPanel({ lojaId }: { lojaId: string }) {
     );
     setSelLado(null);
     setSelLanc(null);
+    setSelDeposito(null);
     setLoading(false);
   };
+
+  /** Vincula um depósito de lotérica a um crédito do extrato. */
+  const conciliarDeposito = async () => {
+    if (!selDeposito || !selLanc) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from("caixa_depositos")
+        .update({ id_extrato_lancamento: selLanc, conciliado: true })
+        .eq("id", selDeposito);
+      if (error) throw error;
+      const { error: e2 } = await supabase
+        .from("extrato_lancamentos")
+        .update({ conciliado: true })
+        .eq("id", selLanc);
+      if (e2) throw e2;
+      toast.success("Depósito conciliado.");
+      await reload();
+    } catch (e) {
+      toast.error((e as { message?: string })?.message ?? "Não foi possível conciliar.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
 
   useEffect(() => {
     reload();
