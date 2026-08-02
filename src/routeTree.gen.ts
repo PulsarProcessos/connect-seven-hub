@@ -22,6 +22,7 @@ import { Route as AuthenticatedExtratoRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedDetalhamentoRouteImport } from './routes/_authenticated/detalhamento'
 import { Route as AuthenticatedDashboardVendasRouteImport } from './routes/_authenticated/dashboard-vendas'
 import { Route as AuthenticatedDashboardFinanceiroRouteImport } from './routes/_authenticated/dashboard-financeiro'
+import { Route as AuthenticatedContasReceberRouteImport } from './routes/_authenticated/contas-receber'
 import { Route as AuthenticatedContasPagarRouteImport } from './routes/_authenticated/contas-pagar'
 import { Route as AuthenticatedContasRouteImport } from './routes/_authenticated/contas'
 import { Route as AuthenticatedConciliacaoRouteImport } from './routes/_authenticated/conciliacao'
@@ -101,6 +102,12 @@ const AuthenticatedDashboardFinanceiroRoute =
     path: '/dashboard-financeiro',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedContasReceberRoute =
+  AuthenticatedContasReceberRouteImport.update({
+    id: '/contas-receber',
+    path: '/contas-receber',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedContasPagarRoute =
   AuthenticatedContasPagarRouteImport.update({
     id: '/contas-pagar',
@@ -155,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/contas': typeof AuthenticatedContasRoute
   '/contas-pagar': typeof AuthenticatedContasPagarRoute
+  '/contas-receber': typeof AuthenticatedContasReceberRoute
   '/dashboard-financeiro': typeof AuthenticatedDashboardFinanceiroRoute
   '/dashboard-vendas': typeof AuthenticatedDashboardVendasRoute
   '/detalhamento': typeof AuthenticatedDetalhamentoRoute
@@ -176,6 +184,7 @@ export interface FileRoutesByTo {
   '/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/contas': typeof AuthenticatedContasRoute
   '/contas-pagar': typeof AuthenticatedContasPagarRoute
+  '/contas-receber': typeof AuthenticatedContasReceberRoute
   '/dashboard-financeiro': typeof AuthenticatedDashboardFinanceiroRoute
   '/dashboard-vendas': typeof AuthenticatedDashboardVendasRoute
   '/detalhamento': typeof AuthenticatedDetalhamentoRoute
@@ -200,6 +209,7 @@ export interface FileRoutesById {
   '/_authenticated/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/_authenticated/contas': typeof AuthenticatedContasRoute
   '/_authenticated/contas-pagar': typeof AuthenticatedContasPagarRoute
+  '/_authenticated/contas-receber': typeof AuthenticatedContasReceberRoute
   '/_authenticated/dashboard-financeiro': typeof AuthenticatedDashboardFinanceiroRoute
   '/_authenticated/dashboard-vendas': typeof AuthenticatedDashboardVendasRoute
   '/_authenticated/detalhamento': typeof AuthenticatedDetalhamentoRoute
@@ -225,6 +235,7 @@ export interface FileRouteTypes {
     | '/conciliacao'
     | '/contas'
     | '/contas-pagar'
+    | '/contas-receber'
     | '/dashboard-financeiro'
     | '/dashboard-vendas'
     | '/detalhamento'
@@ -246,6 +257,7 @@ export interface FileRouteTypes {
     | '/conciliacao'
     | '/contas'
     | '/contas-pagar'
+    | '/contas-receber'
     | '/dashboard-financeiro'
     | '/dashboard-vendas'
     | '/detalhamento'
@@ -269,6 +281,7 @@ export interface FileRouteTypes {
     | '/_authenticated/conciliacao'
     | '/_authenticated/contas'
     | '/_authenticated/contas-pagar'
+    | '/_authenticated/contas-receber'
     | '/_authenticated/dashboard-financeiro'
     | '/_authenticated/dashboard-vendas'
     | '/_authenticated/detalhamento'
@@ -380,6 +393,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardFinanceiroRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/contas-receber': {
+      id: '/_authenticated/contas-receber'
+      path: '/contas-receber'
+      fullPath: '/contas-receber'
+      preLoaderRoute: typeof AuthenticatedContasReceberRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/contas-pagar': {
       id: '/_authenticated/contas-pagar'
       path: '/contas-pagar'
@@ -448,6 +468,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedConciliacaoRoute: typeof AuthenticatedConciliacaoRoute
   AuthenticatedContasRoute: typeof AuthenticatedContasRoute
   AuthenticatedContasPagarRoute: typeof AuthenticatedContasPagarRoute
+  AuthenticatedContasReceberRoute: typeof AuthenticatedContasReceberRoute
   AuthenticatedDashboardFinanceiroRoute: typeof AuthenticatedDashboardFinanceiroRoute
   AuthenticatedDashboardVendasRoute: typeof AuthenticatedDashboardVendasRoute
   AuthenticatedDetalhamentoRoute: typeof AuthenticatedDetalhamentoRoute
@@ -470,6 +491,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConciliacaoRoute: AuthenticatedConciliacaoRoute,
   AuthenticatedContasRoute: AuthenticatedContasRoute,
   AuthenticatedContasPagarRoute: AuthenticatedContasPagarRoute,
+  AuthenticatedContasReceberRoute: AuthenticatedContasReceberRoute,
   AuthenticatedDashboardFinanceiroRoute: AuthenticatedDashboardFinanceiroRoute,
   AuthenticatedDashboardVendasRoute: AuthenticatedDashboardVendasRoute,
   AuthenticatedDetalhamentoRoute: AuthenticatedDetalhamentoRoute,
