@@ -1,11 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, LayoutList, TrendingDown, TrendingUp } from "lucide-react";
+import { toast } from "sonner";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -22,13 +31,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { EntityCombobox } from "@/components/entity-combobox";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { maskMoney, parseMoney, toMoneyInput, friendlyDbError } from "@/lib/money";
 
 export const Route = createFileRoute("/_authenticated/extrato-financeiro")({
   head: () => ({
     meta: [
       { title: "Extrato Financeiro · Connect 7" },
+      {
+        name: "description",
+        content:
+          "Extrato unificado com saldo, edição de lançamentos e baixa de pagamentos e recebimentos.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -48,12 +64,17 @@ type Row = {
   grupo_dre: string;
   categoria_dre: string;
   status_conciliacao: string;
+  liquidado: boolean;
+  data_liquidacao: string | null;
+  contraparte: string | null;
+  id_conta_bancaria: string | null;
 };
 
 const fmtBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const fmtDate = (iso: string) =>
-  new Date(iso + "T00:00:00").toLocaleDateString("pt-BR");
+const fmtDate = (iso: string | null) =>
+  iso ? new Date(iso + "T00:00:00").toLocaleDateString("pt-BR") : "—";
+
 
 const firstOfMonth = () => {
   const d = new Date();
