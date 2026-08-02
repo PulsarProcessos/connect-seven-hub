@@ -264,7 +264,7 @@ function ExtratoFinanceiroPage() {
       </div>
 
       {/* Filtros */}
-      <div className="mt-5 grid grid-cols-2 gap-3 rounded-lg border border-border bg-card p-4 md:grid-cols-6">
+      <div className="mt-5 grid grid-cols-2 gap-3 rounded-lg border border-border bg-card p-4 md:grid-cols-7">
         <div className="grid gap-1.5">
           <Label className="text-xs">Data inicial</Label>
           <Input type="date" value={dtIni} onChange={(e) => setDtIni(e.target.value)} />
@@ -291,8 +291,24 @@ function ExtratoFinanceiroPage() {
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todas</SelectItem>
-              <SelectItem value="ucase">Ucase</SelectItem>
+              <SelectItem value="venda_ucase">Ucase</SelectItem>
               <SelectItem value="manual">Manual</SelectItem>
+              <SelectItem value="conta_pagar">Contas a pagar</SelectItem>
+              <SelectItem value="conta_receber">Contas a receber</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-1.5">
+          <Label className="text-xs">Conta bancária</Label>
+          <Select value={contaSel} onValueChange={setContaSel}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas</SelectItem>
+              {(saldosQ.data ?? []).map((c) => (
+                <SelectItem key={c.id_conta_bancaria} value={c.id_conta_bancaria}>
+                  {c.banco} · {c.agencia}/{c.conta}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -311,21 +327,20 @@ function ExtratoFinanceiroPage() {
           </Select>
         </div>
         <div className="grid gap-1.5">
-          <Label className="text-xs">Status</Label>
+          <Label className="text-xs">Situação</Label>
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
-              <SelectItem value="pendente">Pendente</SelectItem>
-              <SelectItem value="conciliado">Conciliado</SelectItem>
-              <SelectItem value="atrasado">Atrasado</SelectItem>
+              <SelectItem value="todos">Todas</SelectItem>
+              <SelectItem value="aberto">Em aberto</SelectItem>
+              <SelectItem value="liquidado">Pago / Recebido</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
       {/* Totais */}
-      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
         <TotalCard
           label="Entradas"
           value={totais.entradas}
@@ -344,6 +359,12 @@ function ExtratoFinanceiroPage() {
           tone={totais.saldo >= 0 ? "up" : "down"}
           icon={<LayoutList className="h-4 w-4" />}
         />
+        <TotalCard
+          label={contaSel === "todas" ? "Saldo das contas" : "Saldo da conta"}
+          value={saldoAtualContas}
+          tone={saldoAtualContas >= 0 ? "up" : "down"}
+          icon={<LayoutList className="h-4 w-4" />}
+        />
       </div>
 
       <Tabs defaultValue="lista" className="mt-6">
@@ -359,12 +380,12 @@ function ExtratoFinanceiroPage() {
                 <TableRow>
                   <TableHead className="w-28">Data</TableHead>
                   <TableHead>Descrição</TableHead>
-                  <TableHead>Grupo DRE</TableHead>
+                  <TableHead>Cliente / Fornecedor</TableHead>
                   <TableHead>Categoria</TableHead>
-                  <TableHead>Tipo</TableHead>
                   <TableHead>Origem</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Saldo</TableHead>
+                  <TableHead>Situação</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -382,12 +403,17 @@ function ExtratoFinanceiroPage() {
                   </TableRow>
                 ) : (
                   rows.map((r) => (
-                    <TableRow key={`${r.origem}-${r.id}`}>
+                    <TableRow
+                      key={`${r.origem}-${r.id}`}
+                      onClick={() => setDetalhe(r)}
+                      className="cursor-pointer"
+                    >
                       <TableCell className="font-mono text-xs">{fmtDate(r.data_movimento)}</TableCell>
                       <TableCell className="max-w-xs truncate">{r.descricao}</TableCell>
-                      <TableCell className="text-muted-foreground">{r.grupo_dre}</TableCell>
+                      <TableCell className="max-w-[12rem] truncate text-muted-foreground">
+                        {r.contraparte ?? "—"}
+                      </TableCell>
                       <TableCell>{r.categoria_dre}</TableCell>
-                      <TableCell><TipoBadge tipo={r.tipo} /></TableCell>
                       <TableCell><OrigemBadge origem={r.origem} /></TableCell>
                       <TableCell
                         className={`text-right font-mono ${
@@ -401,7 +427,12 @@ function ExtratoFinanceiroPage() {
                         {r.natureza === "despesa" && r.tipo !== "transferencia" ? "− " : ""}
                         {fmtBRL(r.valor)}
                       </TableCell>
-                      <TableCell><StatusBadge status={r.status_conciliacao} /></TableCell>
+                      <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                        {fmtBRL(saldoPorLinha.get(`${r.origem}-${r.id}`) ?? 0)}
+                      </TableCell>
+                      <TableCell>
+                        <LiquidadoBadge row={r} />
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -414,9 +445,256 @@ function ExtratoFinanceiroPage() {
           <DreView rows={rows} />
         </TabsContent>
       </Tabs>
+
+      <LancamentoDialog
+        row={detalhe}
+        onClose={() => setDetalhe(null)}
+        categorias={catsQ.data ?? []}
+        contas={saldosQ.data ?? []}
+      />
     </AppLayout>
   );
 }
+
+function LiquidadoBadge({ row }: { row: Row }) {
+  if (row.liquidado)
+    return (
+      <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+        {row.natureza === "receita" ? "Recebido" : "Pago"}
+      </span>
+    );
+  return (
+    <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+      Em aberto
+    </span>
+  );
+}
+
+type CatOpt = { id: string; nome: string; dre_grupos: { nome: string } | null };
+type ContaOpt = { id_conta_bancaria: string; banco: string; agencia: string; conta: string };
+
+function LancamentoDialog({
+  row,
+  onClose,
+  categorias,
+  contas,
+}: {
+  row: Row | null;
+  onClose: () => void;
+  categorias: CatOpt[];
+  contas: ContaOpt[];
+}) {
+  const qc = useQueryClient();
+  const editavel = row?.origem === "manual";
+
+  const [descricao, setDescricao] = useState("");
+  const [valor, setValor] = useState("");
+  const [data, setData] = useState("");
+  const [cat, setCat] = useState<string | null>(null);
+  const [conta, setConta] = useState<string | null>(null);
+  const [key, setKey] = useState<string>("");
+
+  // Sincroniza os campos quando um novo lançamento é aberto.
+  const rowKey = row ? `${row.origem}-${row.id}` : "";
+  if (row && rowKey !== key) {
+    setKey(rowKey);
+    setDescricao(row.descricao ?? "");
+    setValor(toMoneyInput(row.valor));
+    setData(row.data_movimento);
+    setCat(row.id_categoria);
+    setConta(row.id_conta_bancaria);
+  }
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["extrato_financeiro"] });
+    qc.invalidateQueries({ queryKey: ["saldos_contas"] });
+    qc.invalidateQueries({ queryKey: ["dre"] });
+  };
+
+  const salvar = useMutation({
+    mutationFn: async () => {
+      if (!row) return;
+      const v = parseMoney(valor);
+      if (!descricao.trim()) throw new Error("Informe a descrição.");
+      if (v <= 0) throw new Error("Informe um valor maior que zero.");
+      const { error } = await supabase
+        .from("movimentacoes")
+        .update({
+          descricao: descricao.trim(),
+          valor: v,
+          data_movimento: data,
+          id_categoria: cat,
+          id_conta_bancaria: conta,
+        })
+        .eq("id", row.id);
+      if (error) throw new Error(friendlyDbError(error));
+    },
+    onSuccess: () => {
+      toast.success("Lançamento atualizado.");
+      invalidate();
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const baixar = useMutation({
+    mutationFn: async (liquidar: boolean) => {
+      if (!row) return;
+      const hoje = new Date().toISOString().slice(0, 10);
+      if (row.origem === "conta_pagar") {
+        const { error } = await supabase
+          .from("contas_pagar")
+          .update({
+            status: liquidar ? "pago" : "aberto",
+            data_pagamento: liquidar ? hoje : null,
+          })
+          .eq("id", row.id);
+        if (error) throw new Error(friendlyDbError(error));
+        return;
+      }
+      if (row.origem === "conta_receber") {
+        const { error } = await supabase
+          .from("contas_receber")
+          .update({
+            status: liquidar ? "recebido" : "aberto",
+            data_recebimento: liquidar ? hoje : null,
+          })
+          .eq("id", row.id);
+        if (error) throw new Error(friendlyDbError(error));
+        return;
+      }
+      if (row.origem === "venda_ucase") {
+        const { error } = await supabase
+          .from("vendas_ucase")
+          .update({ status_conciliacao: liquidar ? "conciliado" : "pendente" })
+          .eq("id", row.id);
+        if (error) throw new Error(friendlyDbError(error));
+        return;
+      }
+      const { error } = await supabase
+        .from("movimentacoes")
+        .update({ status_conciliacao: liquidar ? "conciliado" : "pendente" })
+        .eq("id", row.id);
+      if (error) throw new Error(friendlyDbError(error));
+    },
+    onSuccess: (_d, liquidar) => {
+      toast.success(liquidar ? "Baixa registrada." : "Baixa desfeita.");
+      invalidate();
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (!row) return null;
+  const entrada = row.natureza === "receita";
+
+  return (
+    <Dialog open={!!row} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>
+            {entrada ? "Entrada" : "Saída"} · {fmtBRL(row.valor)}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label className="text-xs">Descrição</Label>
+            <Textarea
+              rows={2}
+              value={descricao}
+              disabled={!editavel}
+              onChange={(e) => setDescricao(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label className="text-xs">Data</Label>
+              <Input
+                type="date"
+                value={data}
+                disabled={!editavel}
+                onChange={(e) => setData(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-xs">Valor</Label>
+              <Input
+                inputMode="numeric"
+                value={valor}
+                disabled={!editavel}
+                onChange={(e) => setValor(maskMoney(e.target.value))}
+              />
+            </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label className="text-xs">Categoria (DRE)</Label>
+            <EntityCombobox
+              options={categorias.map((c) => ({
+                value: c.id,
+                label: `${c.dre_grupos?.nome ? c.dre_grupos.nome + " › " : ""}${c.nome}`,
+              }))}
+              value={cat}
+              onChange={setCat}
+              disabled={!editavel}
+              placeholder="Selecione a categoria"
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label className="text-xs">Conta bancária</Label>
+            <EntityCombobox
+              options={contas.map((c) => ({
+                value: c.id_conta_bancaria,
+                label: `${c.banco} · ${c.agencia}/${c.conta}`,
+              }))}
+              value={conta}
+              onChange={setConta}
+              disabled={!editavel}
+              placeholder="Selecione a conta"
+            />
+          </div>
+          {!editavel && (
+            <p className="text-xs text-muted-foreground">
+              Lançamentos de {row.origem === "venda_ucase" ? "vendas importadas" : "títulos"} não
+              são editáveis por aqui — apenas a baixa.
+            </p>
+          )}
+          {row.liquidado && (
+            <p className="text-xs text-muted-foreground">
+              {entrada ? "Recebido" : "Pago"} em {fmtDate(row.data_liquidacao)}.
+            </p>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Fechar
+          </Button>
+          {editavel && (
+            <Button
+              variant="secondary"
+              onClick={() => salvar.mutate()}
+              disabled={salvar.isPending}
+            >
+              Salvar alterações
+            </Button>
+          )}
+          <Button
+            onClick={() => baixar.mutate(!row.liquidado)}
+            disabled={baixar.isPending}
+          >
+            {row.liquidado
+              ? "Desfazer baixa"
+              : entrada
+                ? "Marcar como recebido"
+                : "Marcar como pago"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function TotalCard({
   label,
