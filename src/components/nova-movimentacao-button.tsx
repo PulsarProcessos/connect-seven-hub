@@ -96,6 +96,22 @@ function MovimentacaoDialog({
   const [idCategoria, setIdCategoria] = useState<string>("");
   const [idConta, setIdConta] = useState<string>("");
   const [idContaDestino, setIdContaDestino] = useState<string>("");
+  const [idPessoa, setIdPessoa] = useState<string | null>(null);
+
+  const pessoasQ = useQuery({
+    queryKey: ["mov_pessoas", tipo],
+    enabled: tipo !== "transferencia",
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(tipo === "venda" ? "clientes" : "fornecedores")
+        .select("id, nome")
+        .eq("ativo", true)
+        .order("nome");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
 
   useEffect(() => {
     setIdLoja(defaultLoja);
