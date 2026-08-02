@@ -23,6 +23,8 @@ import {
   Percent,
   Truck,
   UserSquare2,
+  Target,
+
 
 } from "lucide-react";
 import { Connect7Logo } from "./connect7-logo";
