@@ -297,6 +297,21 @@ function MovimentacaoDialog({
 
           {tipo !== "transferencia" && (
             <div className="grid gap-2">
+              <Label>{tipo === "venda" ? "Cliente" : "Fornecedor"}</Label>
+              <EntityCombobox
+                options={(pessoasQ.data ?? []).map((p) => ({
+                  value: p.id,
+                  label: p.nome,
+                }))}
+                value={idPessoa}
+                onChange={setIdPessoa}
+                placeholder="Opcional — digite para filtrar"
+              />
+            </div>
+          )}
+
+          {tipo !== "transferencia" && (
+            <div className="grid gap-2">
               <Label>Categoria (DRE)</Label>
               <Select value={idCategoria} onValueChange={setIdCategoria}>
                 <SelectTrigger>
@@ -325,6 +340,7 @@ function MovimentacaoDialog({
           )}
 
           {tipo !== "transferencia" ? (
+
             <div className="grid gap-2">
               <Label>
                 {tipo === "venda" ? "Conta de crédito" : "Conta de débito"}{" "}
