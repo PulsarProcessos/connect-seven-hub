@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { maskMoney, parseMoney, friendlyDbError } from "@/lib/money";
 
 type TipoMov = "venda" | "despesa" | "transferencia";
 
@@ -161,7 +162,7 @@ function MovimentacaoDialog({
       if (!idLoja) throw new Error("Selecione a loja");
       if (!data) throw new Error("Informe a data");
       if (!descricao.trim()) throw new Error("Informe a descrição");
-      const valorNum = Number(valor.replace(",", "."));
+      const valorNum = parseMoney(valor);
       if (!(valorNum > 0)) throw new Error("Valor deve ser maior que zero");
       if (tipo !== "transferencia" && !idCategoria) throw new Error("Selecione a categoria");
       if (!idConta) throw new Error("Selecione a conta bancária");
@@ -183,7 +184,7 @@ function MovimentacaoDialog({
         criado_por: profile?.id ?? null,
       };
       const { error } = await supabase.from("movimentacoes").insert(payload);
-      if (error) throw error;
+      if (error) throw new Error(friendlyDbError(error));
     },
     onSuccess: () => {
       toast.success(
@@ -257,7 +258,7 @@ function MovimentacaoDialog({
               <Input
                 inputMode="decimal"
                 value={valor}
-                onChange={(e) => setValor(e.target.value)}
+                onChange={(e) => setValor(maskMoney(e.target.value))}
                 placeholder="0,00"
                 className="font-mono"
               />
@@ -383,7 +384,7 @@ function MovimentacaoDialog({
           <Button variant="ghost" onClick={onClose} disabled={salvar.isPending}>
             Cancelar
           </Button>
-          <Button onClick={() => salvar.mutate()} disabled={salvar.isPending}>
+          <Button onClick={() => salvar.mutate()} disabled={salvar.isPending || !idLoja}>
             {salvar.isPending ? "Salvando…" : "Salvar"}
           </Button>
         </DialogFooter>
