@@ -614,6 +614,28 @@ function ImportarVendasPage() {
           </div>
         ))}
 
+      <div className="mt-4 grid max-w-md gap-2">
+        <Label>Vendedor responsável</Label>
+        <Select value={idVendedor} onValueChange={setIdVendedor}>
+          <SelectTrigger>
+            <SelectValue placeholder="Opcional — selecione o vendedor" />
+          </SelectTrigger>
+          <SelectContent>
+            {vendedores.map((v) => (
+              <SelectItem key={v.id} value={v.id}>
+                {v.nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Ao indicar o vendedor, a comissão de cada venda é lançada automaticamente em
+          Contas a Pagar, com o número da venda na descrição.
+        </p>
+      </div>
+
+
+
       <div
         onDragOver={(e) => {
           e.preventDefault();
