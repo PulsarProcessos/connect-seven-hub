@@ -746,6 +746,19 @@ function ContaDialog({
               placeholder="Opcional"
             />
           </div>
+
+          {editing && (
+            <div className="rounded-md border border-border p-3">
+              <ComprovantesPanel
+                origemTipo="conta_pagar"
+                origemId={editing.id}
+                idLoja={editing.id_loja}
+                compact
+              />
+            </div>
+          )}
+        </div>
+
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
