@@ -228,6 +228,9 @@ function ImportarVendasPage() {
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [targetLoja, setTargetLoja] = useState<string>("");
+  const [idVendedor, setIdVendedor] = useState<string>("");
+  const [vendedores, setVendedores] = useState<{ id: string; nome: string }[]>([]);
+
   const [fileName, setFileName] = useState<string>("");
   const [rows, setRows] = useState<Row[]>([]);
   const [importing, setImporting] = useState(false);
