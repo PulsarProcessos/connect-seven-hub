@@ -56,9 +56,19 @@ type Lancamento = {
   conta_label?: string;
 };
 
+type Deposito = {
+  id: string;
+  id_loja: string;
+  data_deposito: string;
+  numero_comprovante: string;
+  valor: number;
+  id_conta_bancaria: string | null;
+};
+
 type Sugestao =
   | { tipo: "venda"; alvo: Venda; lanc: Lancamento; dv: number; dd: number; alta: boolean }
   | { tipo: "conta"; alvo: ContaPagar; lanc: Lancamento; dv: number; dd: number; alta: boolean };
+
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const fmt = (v: unknown) => BRL.format(Number(v ?? 0) || 0);
@@ -82,10 +92,13 @@ export function ConciliacaoPanel({ lojaId }: { lojaId: string }) {
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [contas, setContas] = useState<ContaPagar[]>([]);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
+  const [depositos, setDepositos] = useState<Deposito[]>([]);
   const [loading, setLoading] = useState(false);
   const [tolValor, setTolValor] = useState(0.02);
   const [tolDias, setTolDias] = useState(2);
   const [busy, setBusy] = useState(false);
+  const [selDeposito, setSelDeposito] = useState<string | null>(null);
+
 
   // seleção para conciliação manual
   const [selLado, setSelLado] = useState<{ tipo: "venda" | "conta"; id: string } | null>(null);
