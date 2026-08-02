@@ -39,6 +39,8 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { ComprovantesPanel } from "@/components/comprovantes-panel";
+
 
 export const Route = createFileRoute("/_authenticated/contas-pagar")({
   head: () => ({
@@ -746,7 +748,19 @@ function ContaDialog({
               placeholder="Opcional"
             />
           </div>
+
+          {editing && (
+            <div className="rounded-md border border-border p-3">
+              <ComprovantesPanel
+                origemTipo="conta_pagar"
+                origemId={editing.id}
+                idLoja={editing.id_loja}
+                compact
+              />
+            </div>
+          )}
         </div>
+
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar

@@ -56,9 +56,19 @@ type Lancamento = {
   conta_label?: string;
 };
 
+type Deposito = {
+  id: string;
+  id_loja: string;
+  data_deposito: string;
+  numero_comprovante: string;
+  valor: number;
+  id_conta_bancaria: string | null;
+};
+
 type Sugestao =
   | { tipo: "venda"; alvo: Venda; lanc: Lancamento; dv: number; dd: number; alta: boolean }
   | { tipo: "conta"; alvo: ContaPagar; lanc: Lancamento; dv: number; dd: number; alta: boolean };
+
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const fmt = (v: unknown) => BRL.format(Number(v ?? 0) || 0);
@@ -82,10 +92,13 @@ export function ConciliacaoPanel({ lojaId }: { lojaId: string }) {
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [contas, setContas] = useState<ContaPagar[]>([]);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
+  const [depositos, setDepositos] = useState<Deposito[]>([]);
   const [loading, setLoading] = useState(false);
   const [tolValor, setTolValor] = useState(0.02);
   const [tolDias, setTolDias] = useState(2);
   const [busy, setBusy] = useState(false);
+  const [selDeposito, setSelDeposito] = useState<string | null>(null);
+
 
   // seleção para conciliação manual
   const [selLado, setSelLado] = useState<{ tipo: "venda" | "conta"; id: string } | null>(null);
@@ -96,6 +109,7 @@ export function ConciliacaoPanel({ lojaId }: { lojaId: string }) {
       setVendas([]);
       setContas([]);
       setLancamentos([]);
+      setDepositos([]);
       return;
     }
     setLoading(true);
@@ -104,7 +118,7 @@ export function ConciliacaoPanel({ lojaId }: { lojaId: string }) {
     } catch {
       /* função pode não existir ainda; segue */
     }
-    const [v, cp, l, cb] = await Promise.all([
+    const [v, cp, l, cb, dep] = await Promise.all([
       supabase
         .from("vendas_ucase")
         .select(
@@ -127,6 +141,12 @@ export function ConciliacaoPanel({ lojaId }: { lojaId: string }) {
         .eq("conciliado", false)
         .order("data_lancamento"),
       supabase.from("contas_bancarias").select("id, banco, agencia, conta"),
+      supabase
+        .from("caixa_depositos")
+        .select("id, id_loja, data_deposito, numero_comprovante, valor, id_conta_bancaria")
+        .eq("id_loja", lojaId)
+        .eq("conciliado", false)
+        .order("data_deposito"),
     ]);
 
     const cmap = new Map(
@@ -137,6 +157,7 @@ export function ConciliacaoPanel({ lojaId }: { lojaId: string }) {
     );
     setVendas((v.data ?? []) as Venda[]);
     setContas((cp.data ?? []) as ContaPagar[]);
+    setDepositos((dep.data ?? []) as Deposito[]);
     setLancamentos(
       ((l.data ?? []) as Lancamento[]).map((r) => ({
         ...r,
@@ -145,8 +166,34 @@ export function ConciliacaoPanel({ lojaId }: { lojaId: string }) {
     );
     setSelLado(null);
     setSelLanc(null);
+    setSelDeposito(null);
     setLoading(false);
   };
+
+  /** Vincula um depósito de lotérica a um crédito do extrato. */
+  const conciliarDeposito = async () => {
+    if (!selDeposito || !selLanc) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from("caixa_depositos")
+        .update({ id_extrato_lancamento: selLanc, conciliado: true })
+        .eq("id", selDeposito);
+      if (error) throw error;
+      const { error: e2 } = await supabase
+        .from("extrato_lancamentos")
+        .update({ conciliado: true })
+        .eq("id", selLanc);
+      if (e2) throw e2;
+      toast.success("Depósito conciliado.");
+      await reload();
+    } catch (e) {
+      toast.error((e as { message?: string })?.message ?? "Não foi possível conciliar.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
 
   useEffect(() => {
     reload();
@@ -601,6 +648,65 @@ export function ConciliacaoPanel({ lojaId }: { lojaId: string }) {
           </Button>
         </div>
       )}
+
+      <div className="mt-6 rounded-lg border border-border bg-card">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+          <ArrowUpRight className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold">Depósitos em lotérica a conciliar</h3>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {depositos.length} pendente(s)
+          </span>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Data</TableHead>
+              <TableHead>Comprovante</TableHead>
+              <TableHead className="text-right">Valor</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {depositos.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3} className="py-6 text-center text-sm text-muted-foreground">
+                  Nenhum depósito aguardando conciliação.
+                </TableCell>
+              </TableRow>
+            ) : (
+              depositos.map((d) => (
+                <TableRow
+                  key={d.id}
+                  onClick={() => !readonly && setSelDeposito(d.id)}
+                  className={`cursor-pointer ${selDeposito === d.id ? "bg-primary/10" : ""}`}
+                >
+                  <TableCell className="font-mono text-xs">{fmtData(d.data_deposito)}</TableCell>
+                  <TableCell className="text-sm">nº {d.numero_comprovante}</TableCell>
+                  <TableCell className="text-right font-mono text-sm text-emerald-600">
+                    {fmt(d.valor)}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+        {!readonly && depositos.length > 0 && (
+          <div className="flex items-center gap-3 border-t border-border px-4 py-3">
+            <span className="text-sm text-muted-foreground">
+              Selecione o depósito e o lançamento do extrato correspondente.
+            </span>
+            <Button
+              className="ml-auto"
+              variant="secondary"
+              disabled={!selDeposito || !selLanc || busy}
+              onClick={conciliarDeposito}
+            >
+              <Link2 className="h-4 w-4" />
+              Conciliar depósito
+            </Button>
+          </div>
+        )}
+      </div>
+
     </>
   );
 }

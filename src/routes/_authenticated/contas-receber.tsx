@@ -33,6 +33,8 @@ import {
 import { EntityCombobox } from "@/components/entity-combobox";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { ComprovantesPanel } from "@/components/comprovantes-panel";
+
 import { fmtBRL, maskMoney, parseMoney, toMoneyInput, friendlyDbError } from "@/lib/money";
 
 export const Route = createFileRoute("/_authenticated/contas-receber")({
@@ -532,7 +534,19 @@ function DetalheDialog({
               )}
             </div>
           )}
+
+          {item.fonte === "conta_receber" && (
+            <div className="rounded-md border border-border p-3">
+              <ComprovantesPanel
+                origemTipo="conta_receber"
+                origemId={item.id}
+                idLoja={item.id_loja}
+                compact
+              />
+            </div>
+          )}
         </div>
+
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
             Fechar

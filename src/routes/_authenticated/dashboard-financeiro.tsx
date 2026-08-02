@@ -180,8 +180,17 @@ function DashboardFinanceiroPage() {
 }
 
 /* ------------------------------------------------------------------ */
-/* DRE                                                                 */
+/* DRE — por data de competência                                       */
 /* ------------------------------------------------------------------ */
+
+type DreRow = {
+  id_loja: string | null;
+  id_categoria: string | null;
+  categoria: string;
+  natureza: string;
+  data_competencia: string;
+  valor: number;
+};
 
 function DreSection({
   escopoLoja,
@@ -192,274 +201,272 @@ function DreSection({
   dtIni: string;
   dtFim: string;
 }) {
-  const [sel, setSel] = useState<{ key: string; label: string } | null>(null);
+  const { lojas } = useAuth();
   const [fechados, setFechados] = useState<Record<string, boolean>>({});
+  const [lojaDrill, setLojaDrill] = useState<string | null>(null);
 
   const q = useQuery({
-    queryKey: ["dre_dashboard", { escopoLoja, dtIni, dtFim }],
+    queryKey: ["dre_competencia", { escopoLoja, dtIni, dtFim }],
     queryFn: async () => {
       let query = supabase
-        .from("vw_extrato_financeiro")
-        .select("*")
-        .gte("data_movimento", dtIni)
-        .lte("data_movimento", dtFim)
-        .order("data_movimento", { ascending: false });
+        .from("vw_dre_competencia")
+        .select("id_loja, id_categoria, categoria, natureza, data_competencia, valor")
+        .gte("data_competencia", dtIni)
+        .lte("data_competencia", dtFim);
       if (escopoLoja) query = query.eq("id_loja", escopoLoja);
       const { data, error } = await query;
       if (error) throw error;
-      return ((data ?? []) as ExtratoRow[])
-        .filter((r) => r.tipo !== "transferencia")
-        .map((r) => ({ ...r, valor: Number(r.valor) }));
+      return ((data ?? []) as DreRow[]).map((r) => ({ ...r, valor: Number(r.valor) }));
     },
   });
 
-  const rows = q.data ?? [];
-  const catKey = (r: ExtratoRow) => r.id_categoria ?? `${r.grupo_dre}::${r.categoria_dre}`;
+  const catsQ = useQuery({
+    queryKey: ["dre_cats_grupos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("dre_categorias")
+        .select("id, nome, dre_grupos(nome, natureza, ordem)");
+      if (error) throw error;
+      return (data ?? []) as unknown as {
+        id: string;
+        nome: string;
+        dre_grupos: { nome: string; natureza: string; ordem: number } | null;
+      }[];
+    },
+  });
 
-  const { grupos, receita, despesa } = useMemo(() => {
+  const grupoDe = (r: DreRow) => {
+    if (!r.id_categoria) return r.natureza === "receita" ? "Receita de Vendas" : "Outras despesas";
+    return catsQ.data?.find((c) => c.id === r.id_categoria)?.dre_grupos?.nome ?? "Sem grupo";
+  };
+
+  const todas = q.data ?? [];
+  const rows = useMemo(
+    () => (lojaDrill ? todas.filter((r) => r.id_loja === lojaDrill) : todas),
+    [todas, lojaDrill],
+  );
+
+  const { grupos, receita, despesa, cmv, comissoes } = useMemo(() => {
     const map = new Map<
       string,
-      {
-        nome: string;
-        natureza: string;
-        total: number;
-        cats: Map<string, { key: string; nome: string; total: number }>;
-      }
+      { nome: string; natureza: string; total: number; cats: Map<string, { nome: string; total: number }> }
     >();
     let receita = 0;
     let despesa = 0;
+    let cmv = 0;
+    let comissoes = 0;
     for (const r of rows) {
+      const grupo = grupoDe(r);
       if (r.natureza === "receita") receita += r.valor;
       else despesa += r.valor;
-      const gk = `${r.natureza}::${r.grupo_dre}`;
+      if (/cmv|custo/i.test(grupo)) cmv += r.valor;
+      if (/comiss/i.test(grupo) || /comiss/i.test(r.categoria)) comissoes += r.valor;
+      const gk = `${r.natureza}::${grupo}`;
       if (!map.has(gk))
-        map.set(gk, {
-          nome: r.grupo_dre,
-          natureza: r.natureza,
-          total: 0,
-          cats: new Map(),
-        });
+        map.set(gk, { nome: grupo, natureza: r.natureza, total: 0, cats: new Map() });
       const g = map.get(gk)!;
       g.total += r.valor;
-      const ck = catKey(r);
-      const c = g.cats.get(ck) ?? { key: ck, nome: r.categoria_dre, total: 0 };
+      const c = g.cats.get(r.categoria) ?? { nome: r.categoria, total: 0 };
       c.total += r.valor;
-      g.cats.set(ck, c);
+      g.cats.set(r.categoria, c);
     }
     const grupos = [...map.entries()]
-      .map(([key, g]) => ({
-        key,
-        ...g,
-        cats: [...g.cats.values()].sort((a, b) => b.total - a.total),
-      }))
+      .map(([key, g]) => ({ key, ...g, cats: [...g.cats.values()].sort((a, b) => b.total - a.total) }))
       .sort((a, b) =>
-        a.natureza === b.natureza
-          ? b.total - a.total
-          : a.natureza === "receita"
-            ? -1
-            : 1,
+        a.natureza === b.natureza ? b.total - a.total : a.natureza === "receita" ? -1 : 1,
       );
-    return { grupos, receita, despesa };
-  }, [rows]);
+    return { grupos, receita, despesa, cmv, comissoes };
+  }, [rows, catsQ.data]);
 
-  const lancamentos = useMemo(() => {
-    if (!sel) return rows;
-    return rows.filter((r) => catKey(r) === sel.key || `${r.natureza}::${r.grupo_dre}` === sel.key);
-  }, [rows, sel]);
+  // Comparação entre lojas — sempre com a base completa do período.
+  const comparativo = useMemo(() => {
+    const map = new Map<string, { receita: number; despesa: number }>();
+    for (const r of todas) {
+      if (!r.id_loja) continue;
+      const cur = map.get(r.id_loja) ?? { receita: 0, despesa: 0 };
+      if (r.natureza === "receita") cur.receita += r.valor;
+      else cur.despesa += r.valor;
+      map.set(r.id_loja, cur);
+    }
+    return [...map.entries()]
+      .map(([id, v]) => ({ id, ...v, resultado: v.receita - v.despesa }))
+      .sort((a, b) => b.receita - a.receita);
+  }, [todas]);
 
-  const totalSel = lancamentos.reduce((s, r) => s + r.valor, 0);
+  const nomeLoja = (id: string) => lojas.find((l) => l.id === id)?.nome ?? "Loja";
 
   return (
     <div>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <p className="mb-3 text-xs text-muted-foreground">
+        DRE apurada por <strong>data de competência</strong> — receita de vendas, CMV, despesas e
+        comissões.
+      </p>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard label="Receita" value={receita} tone="positive" />
+        <KpiCard label="CMV" value={cmv} tone="negative" />
         <KpiCard label="Despesas" value={despesa} tone="negative" />
+        <KpiCard label="Comissões" value={comissoes} tone="negative" />
         <KpiCard label="Resultado" value={receita - despesa} tone="neutral" />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        {/* DRE */}
-        <div className="rounded-lg border border-border bg-card">
-          <div className="border-b border-border px-4 py-3">
-            <div className="text-sm font-medium">DRE por categoria</div>
-            <p className="text-xs text-muted-foreground">
-              Clique em uma categoria para ver os lançamentos ao lado.
-            </p>
+      {comparativo.length > 1 && (
+        <div className="mt-4 rounded-lg border border-border bg-card">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+            <div>
+              <div className="text-sm font-medium">Comparação entre lojas</div>
+              <p className="text-xs text-muted-foreground">
+                Clique em uma loja para ver a DRE apenas dela (drill-down).
+              </p>
+            </div>
+            {lojaDrill && (
+              <button className="text-xs text-primary hover:underline" onClick={() => setLojaDrill(null)}>
+                Ver consolidado do grupo
+              </button>
+            )}
           </div>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Categoria</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="w-24 text-right">% Receita</TableHead>
+                <TableHead>Loja</TableHead>
+                <TableHead className="text-right">Receita</TableHead>
+                <TableHead className="text-right">Despesas</TableHead>
+                <TableHead className="text-right">Resultado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {q.isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="py-10 text-center text-sm text-muted-foreground">
-                    Carregando…
+              {comparativo.map((l) => (
+                <TableRow
+                  key={l.id}
+                  className="cursor-pointer"
+                  data-state={lojaDrill === l.id ? "selected" : undefined}
+                  onClick={() => setLojaDrill(lojaDrill === l.id ? null : l.id)}
+                >
+                  <TableCell className="font-medium">{nomeLoja(l.id)}</TableCell>
+                  <TableCell className="text-right font-mono text-emerald-600">
+                    {fmtBRL(l.receita)}
                   </TableCell>
+                  <TableCell className="text-right font-mono text-rose-600">
+                    {fmtBRL(l.despesa)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">{fmtBRL(l.resultado)}</TableCell>
                 </TableRow>
-              ) : grupos.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="py-10 text-center text-sm text-muted-foreground">
-                    Nenhum lançamento no período.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                grupos.map((g) => {
-                  const aberto = !fechados[g.key];
-                  return (
-                    <Fragment key={g.key}>
-                      <TableRow
-                        className="cursor-pointer bg-muted/40 font-medium"
-                        onClick={() => {
-                          setFechados((f) => ({ ...f, [g.key]: aberto }));
-                          setSel({ key: g.key, label: g.nome });
-                        }}
-                      >
-                        <TableCell className="flex items-center gap-1.5">
-                          {aberto ? (
-                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                          ) : (
-                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                          )}
-                          {g.nome}
-                        </TableCell>
-                        <TableCell
-                          className={`text-right font-mono ${
-                            g.natureza === "receita" ? "text-emerald-600" : "text-rose-600"
-                          }`}
-                        >
-                          {fmtBRL(g.total)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs">
-                          {pct(g.total, receita)}
-                        </TableCell>
-                      </TableRow>
-                      {aberto &&
-                        g.cats.map((c) => (
-                          <TableRow
-                            key={c.key}
-                            data-state={sel?.key === c.key ? "selected" : undefined}
-                            className="cursor-pointer"
-                            onClick={() => setSel({ key: c.key, label: c.nome })}
-                          >
-                            <TableCell className="pl-8 text-sm">{c.nome}</TableCell>
-                            <TableCell className="text-right font-mono text-sm">
-                              {fmtBRL(c.total)}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                              {pct(c.total, receita)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                    </Fragment>
-                  );
-                })
-              )}
-              {grupos.length > 0 && (
-                <TableRow className="border-t-2 border-border font-semibold">
-                  <TableCell>Resultado do período</TableCell>
-                  <TableCell className="text-right font-mono">
-                    {fmtBRL(receita - despesa)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-xs">
-                    {pct(receita - despesa, receita)}
-                  </TableCell>
-                </TableRow>
-              )}
+              ))}
             </TableBody>
           </Table>
         </div>
+      )}
 
-        {/* Lançamentos */}
-        <div className="rounded-lg border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <div>
-              <div className="text-sm font-medium">
-                {sel ? `Lançamentos · ${sel.label}` : "Todos os lançamentos"}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {lancamentos.length} registro(s) · total {fmtBRL(totalSel)}
-              </p>
-            </div>
-            {sel && (
-              <button
-                className="text-xs text-primary hover:underline"
-                onClick={() => setSel(null)}
-              >
-                Limpar seleção
-              </button>
-            )}
-          </div>
-          <div className="max-h-[520px] overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-24">Data</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {lancamentos.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="py-10 text-center text-sm text-muted-foreground">
-                      Nenhum lançamento.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  lancamentos.map((r) => (
-                    <TableRow key={`${r.origem}-${r.id}`}>
-                      <TableCell className="font-mono text-xs">
-                        {fmtDate(r.data_movimento)}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {r.descricao}
-                        <div className="text-xs text-muted-foreground">
-                          {r.categoria_dre}
-                        </div>
-                      </TableCell>
-                      <TableCell
-                        className={`text-right font-mono text-sm ${
-                          r.natureza === "receita" ? "text-emerald-600" : "text-rose-600"
-                        }`}
-                      >
-                        {fmtBRL(r.valor)}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+      <div className="mt-4 rounded-lg border border-border bg-card">
+        <div className="border-b border-border px-4 py-3">
+          <div className="text-sm font-medium">
+            DRE por categoria {lojaDrill ? `· ${nomeLoja(lojaDrill)}` : "· consolidado"}
           </div>
         </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Categoria</TableHead>
+              <TableHead className="text-right">Valor</TableHead>
+              <TableHead className="w-24 text-right">% Receita</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {q.isLoading ? (
+              <TableRow>
+                <TableCell colSpan={3} className="py-10 text-center text-sm text-muted-foreground">
+                  Carregando…
+                </TableCell>
+              </TableRow>
+            ) : grupos.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3} className="py-10 text-center text-sm text-muted-foreground">
+                  Nenhum lançamento no período.
+                </TableCell>
+              </TableRow>
+            ) : (
+              grupos.map((g) => {
+                const aberto = !fechados[g.key];
+                return (
+                  <Fragment key={g.key}>
+                    <TableRow
+                      className="cursor-pointer bg-muted/40 font-medium"
+                      onClick={() => setFechados((f) => ({ ...f, [g.key]: aberto }))}
+                    >
+                      <TableCell className="flex items-center gap-1.5">
+                        {aberto ? (
+                          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                        {g.nome}
+                      </TableCell>
+                      <TableCell
+                        className={`text-right font-mono ${
+                          g.natureza === "receita" ? "text-emerald-600" : "text-rose-600"
+                        }`}
+                      >
+                        {fmtBRL(g.total)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs">
+                        {pct(g.total, receita)}
+                      </TableCell>
+                    </TableRow>
+                    {aberto &&
+                      g.cats.map((c) => (
+                        <TableRow key={`${g.key}-${c.nome}`}>
+                          <TableCell className="pl-8 text-sm">{c.nome}</TableCell>
+                          <TableCell className="text-right font-mono text-sm">
+                            {fmtBRL(c.total)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                            {pct(c.total, receita)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </Fragment>
+                );
+              })
+            )}
+            {grupos.length > 0 && (
+              <TableRow className="border-t-2 border-border font-semibold">
+                <TableCell>Resultado do período</TableCell>
+                <TableCell className="text-right font-mono">{fmtBRL(receita - despesa)}</TableCell>
+                <TableCell className="text-right font-mono text-xs">
+                  {pct(receita - despesa, receita)}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Fluxo de caixa                                                      */
+/* Fluxo de caixa — 3 bases de data, realizado x projetado             */
 /* ------------------------------------------------------------------ */
 
-type Receber = {
+type FluxoRow = {
   id: string;
-  data_prevista_recebimento: string | null;
-  valor_liquido_previsto: number;
-  status_conciliacao: string;
-  numero_venda: string | null;
-  meio_pagamento: string;
-};
-type Pagar = {
-  id: string;
+  origem: string;
+  id_loja: string;
   descricao: string;
-  fornecedor: string | null;
   valor: number;
-  data_vencimento: string;
+  data_competencia: string | null;
+  data_vencimento: string | null;
+  data_realizacao: string | null;
+  realizado: boolean;
   status: string;
+};
+
+type BaseData = "competencia" | "vencimento" | "realizacao";
+
+const CAMPO_DATA: Record<BaseData, keyof FluxoRow> = {
+  competencia: "data_competencia",
+  vencimento: "data_vencimento",
+  realizacao: "data_realizacao",
 };
 
 function FluxoSection({
@@ -471,191 +478,190 @@ function FluxoSection({
   dtIni: string;
   dtFim: string;
 }) {
+  const { lojas } = useAuth();
+  const [base, setBase] = useState<BaseData>("realizacao");
+
   const q = useQuery({
-    queryKey: ["fluxo_caixa", { escopoLoja, dtIni, dtFim }],
+    queryKey: ["fluxo_caixa_view", { escopoLoja, dtIni, dtFim, base }],
     queryFn: async () => {
-      let vq = supabase
-        .from("vendas_ucase")
+      const campo = CAMPO_DATA[base] as string;
+      let query = supabase
+        .from("vw_fluxo_caixa")
         .select(
-          "id, data_prevista_recebimento, valor_liquido_previsto, status_conciliacao, numero_venda, meio_pagamento",
+          "id, origem, id_loja, descricao, valor, data_competencia, data_vencimento, data_realizacao, realizado, status",
         )
-        .gte("data_prevista_recebimento", dtIni)
-        .lte("data_prevista_recebimento", dtFim)
-        .order("data_prevista_recebimento");
-      let cq = supabase
-        .from("contas_pagar")
-        .select("id, descricao, fornecedor, valor, data_vencimento, status")
-        .neq("status", "cancelado")
-        .gte("data_vencimento", dtIni)
-        .lte("data_vencimento", dtFim)
-        .order("data_vencimento");
-      if (escopoLoja) {
-        vq = vq.eq("id_loja", escopoLoja);
-        cq = cq.eq("id_loja", escopoLoja);
-      }
-      const [v, c] = await Promise.all([vq, cq]);
-      if (v.error) throw v.error;
-      if (c.error) throw c.error;
-      return {
-        receber: ((v.data ?? []) as Receber[]).map((r) => ({
-          ...r,
-          valor_liquido_previsto: Number(r.valor_liquido_previsto),
-        })),
-        pagar: ((c.data ?? []) as Pagar[]).map((r) => ({ ...r, valor: Number(r.valor) })),
-      };
+        .gte(campo, dtIni)
+        .lte(campo, dtFim);
+      if (escopoLoja) query = query.eq("id_loja", escopoLoja);
+      const { data, error } = await query;
+      if (error) throw error;
+      return ((data ?? []) as FluxoRow[]).map((r) => ({ ...r, valor: Number(r.valor) }));
     },
   });
 
-  const receber = q.data?.receber ?? [];
-  const pagar = q.data?.pagar ?? [];
-  const hoje = todayISO();
+  const saldosQ = useQuery({
+    queryKey: ["saldo_inicial_lojas", escopoLoja],
+    queryFn: async () => {
+      let query = supabase.from("lojas").select("id, saldo_inicial_caixa");
+      if (escopoLoja) query = query.eq("id", escopoLoja);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
-  const totReceber = receber.reduce((s, r) => s + r.valor_liquido_previsto, 0);
-  const recebido = receber
-    .filter((r) => r.status_conciliacao === "conciliado")
-    .reduce((s, r) => s + r.valor_liquido_previsto, 0);
-  const atrasados = receber
-    .filter((r) => r.status_conciliacao === "atrasado")
-    .reduce((s, r) => s + r.valor_liquido_previsto, 0);
-  const totPagar = pagar.reduce((s, r) => s + r.valor, 0);
-  const pago = pagar.filter((r) => r.status === "pago").reduce((s, r) => s + r.valor, 0);
-  const vencidas = pagar
-    .filter((r) => r.status === "aberto" && r.data_vencimento < hoje)
-    .reduce((s, r) => s + r.valor, 0);
+  const rows = q.data ?? [];
+  const saldoInicial = (saldosQ.data ?? []).reduce(
+    (s, l) => s + Number(l.saldo_inicial_caixa ?? 0),
+    0,
+  );
+
+  const totais = useMemo(() => {
+    let entradasR = 0;
+    let saidasR = 0;
+    let entradasP = 0;
+    let saidasP = 0;
+    for (const r of rows) {
+      const v = Number(r.valor);
+      if (r.realizado) {
+        if (v >= 0) entradasR += v;
+        else saidasR += -v;
+      } else if (v >= 0) entradasP += v;
+      else saidasP += -v;
+    }
+    return { entradasR, saidasR, entradasP, saidasP };
+  }, [rows]);
+
+  const realizado = totais.entradasR - totais.saidasR;
+  const projetado = totais.entradasP - totais.saidasP;
+  const saldoFinal = saldoInicial + realizado + projetado;
+
+  const nomeLoja = (id: string) => lojas.find((l) => l.id === id)?.nome ?? "—";
+  const dataDe = (r: FluxoRow) => (r[CAMPO_DATA[base]] as string | null) ?? null;
+
+  const ordenadas = useMemo(
+    () =>
+      [...rows].sort((a, b) => String(dataDe(a) ?? "").localeCompare(String(dataDe(b) ?? ""))),
+    [rows, base],
+  );
+
+  const rotuloOrigem: Record<string, string> = {
+    pagar: "Contas a pagar",
+    receber: "Contas a receber",
+    recebivel_cartao: "Recebível de cartão/financeira",
+  };
 
   return (
     <div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="A receber no mês" value={totReceber} tone="positive" hint={`${fmtBRL(recebido)} já recebido`} />
-        <KpiCard label="A pagar no mês" value={totPagar} tone="negative" hint={`${fmtBRL(pago)} já pago`} />
-        <KpiCard label="Saldo projetado" value={totReceber - totPagar} tone="neutral" />
-        <KpiCard
-          label="Em atraso"
-          value={atrasados + vencidas}
-          tone="negative"
-          hint={`${fmtBRL(atrasados)} a receber · ${fmtBRL(vencidas)} a pagar`}
-        />
+      <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-4">
+        <div className="grid gap-1.5">
+          <Label className="text-xs">Visão por data de</Label>
+          <Select value={base} onValueChange={(v) => setBase(v as BaseData)}>
+            <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="competencia">Competência</SelectItem>
+              <SelectItem value="vencimento">Vencimento</SelectItem>
+              <SelectItem value="realizacao">Realização (caixa)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <p className="max-w-md text-xs text-muted-foreground">
+          Recebíveis de cartão e financeira entram pela data prevista de repasse do adquirente,
+          não pela data da venda.
+        </p>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border border-border bg-card">
-          <div className="flex items-center gap-2 border-b border-border px-4 py-3 text-sm font-medium">
-            <ArrowUpRight className="h-4 w-4 text-emerald-600" />
-            Recebimentos previstos
-          </div>
-          <div className="max-h-[520px] overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-24">Previsão</TableHead>
-                  <TableHead>Venda</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {q.isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="py-10 text-center text-sm text-muted-foreground">
-                      Carregando…
-                    </TableCell>
-                  </TableRow>
-                ) : receber.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="py-10 text-center text-sm text-muted-foreground">
-                      Nada previsto para este período.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  receber.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-mono text-xs">
-                        {r.data_prevista_recebimento
-                          ? fmtDate(r.data_prevista_recebimento)
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {r.numero_venda ?? "Venda Ucase"}
-                        <div className="text-xs text-muted-foreground">
-                          {r.meio_pagamento === "cartao"
-                            ? "Cartão"
-                            : r.meio_pagamento === "financeira"
-                              ? "Financeira"
-                              : "À vista"}{" "}
-                          ·{" "}
-                          <StatusBadge
-                            status={r.status_conciliacao}
-                            atrasado={r.status_conciliacao === "atrasado"}
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm text-emerald-600">
-                        {fmtBRL(r.valor_liquido_previsto)}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <KpiCard label="Saldo inicial das lojas" value={saldoInicial} tone="neutral" />
+        <KpiCard
+          label="Realizado"
+          value={realizado}
+          tone="neutral"
+          hint={`${fmtBRL(totais.entradasR)} entradas · ${fmtBRL(totais.saidasR)} saídas`}
+        />
+        <KpiCard
+          label="Projetado"
+          value={projetado}
+          tone="neutral"
+          hint={`${fmtBRL(totais.entradasP)} entradas · ${fmtBRL(totais.saidasP)} saídas`}
+        />
+        <KpiCard label="Saldo final do mês" value={saldoFinal} tone="neutral" />
+        <KpiCard label="Lançamentos" value={rows.length} tone="neutral" hint="no período" />
+      </div>
 
-        <div className="rounded-lg border border-border bg-card">
-          <div className="flex items-center gap-2 border-b border-border px-4 py-3 text-sm font-medium">
-            <ArrowDownRight className="h-4 w-4 text-rose-600" />
-            Pagamentos previstos
-          </div>
-          <div className="max-h-[520px] overflow-auto">
-            <Table>
-              <TableHeader>
+      <div className="mt-4 rounded-lg border border-border bg-card">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3 text-sm font-medium">
+          <ArrowUpRight className="h-4 w-4 text-emerald-600" />
+          Realizado x Projetado
+          <ArrowDownRight className="h-4 w-4 text-rose-600" />
+        </div>
+        <div className="max-h-[560px] overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-24">Data</TableHead>
+                <TableHead>Descrição</TableHead>
+                <TableHead>Loja</TableHead>
+                <TableHead>Origem</TableHead>
+                <TableHead>Situação</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {q.isLoading ? (
                 <TableRow>
-                  <TableHead className="w-24">Vencimento</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
+                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                    Carregando…
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {q.isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="py-10 text-center text-sm text-muted-foreground">
-                      Carregando…
+              ) : ordenadas.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                    Nada previsto ou realizado neste período.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                ordenadas.map((r) => (
+                  <TableRow key={`${r.origem}-${r.id}`}>
+                    <TableCell className="font-mono text-xs">
+                      {dataDe(r) ? fmtDate(dataDe(r)!) : "—"}
+                    </TableCell>
+                    <TableCell className="text-sm">{r.descricao}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {nomeLoja(r.id_loja)}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {rotuloOrigem[r.origem] ?? r.origem}
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                          r.realizado
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {r.realizado ? "realizado" : "projetado"}
+                      </span>
+                    </TableCell>
+                    <TableCell
+                      className={`text-right font-mono text-sm ${
+                        r.valor >= 0 ? "text-emerald-600" : "text-rose-600"
+                      }`}
+                    >
+                      {fmtBRL(r.valor)}
                     </TableCell>
                   </TableRow>
-                ) : pagar.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="py-10 text-center text-sm text-muted-foreground">
-                      Nenhuma conta no período.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  pagar.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-mono text-xs">
-                        {fmtDate(r.data_vencimento)}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {r.descricao}
-                        <div className="text-xs text-muted-foreground">
-                          {r.fornecedor ? `${r.fornecedor} · ` : ""}
-                          <StatusBadge
-                            status={r.status}
-                            atrasado={r.status === "aberto" && r.data_vencimento < hoje}
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm text-rose-600">
-                        {fmtBRL(r.valor)}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
     </div>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* bits                                                                */

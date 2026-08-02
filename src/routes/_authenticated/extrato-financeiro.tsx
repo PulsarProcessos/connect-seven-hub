@@ -34,6 +34,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EntityCombobox } from "@/components/entity-combobox";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { ComprovantesPanel } from "@/components/comprovantes-panel";
+
 import { maskMoney, parseMoney, toMoneyInput, friendlyDbError } from "@/lib/money";
 
 export const Route = createFileRoute("/_authenticated/extrato-financeiro")({
@@ -664,7 +666,25 @@ function LancamentoDialog({
               {entrada ? "Recebido" : "Pago"} em {fmtDate(row.data_liquidacao)}.
             </p>
           )}
+
+          {(row.origem === "manual" ||
+            row.origem === "conta_pagar" ||
+            row.origem === "conta_receber") && (
+            <div className="rounded-md border border-border p-3">
+              <ComprovantesPanel
+                origemTipo={
+                  row.origem === "manual"
+                    ? "movimentacao"
+                    : (row.origem as "conta_pagar" | "conta_receber")
+                }
+                origemId={row.id}
+                idLoja={row.id_loja}
+                compact
+              />
+            </div>
+          )}
         </div>
+
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose}>
