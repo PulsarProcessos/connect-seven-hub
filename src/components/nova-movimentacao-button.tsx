@@ -198,7 +198,10 @@ function MovimentacaoDialog({
         id_categoria: tipo === "transferencia" ? null : idCategoria,
         id_conta_bancaria: idConta || null,
         id_conta_destino: tipo === "transferencia" ? idContaDestino : null,
+        id_cliente: tipo === "venda" ? idPessoa : null,
+        id_fornecedor: tipo === "despesa" ? idPessoa : null,
         criado_por: profile?.id ?? null,
+
       };
       const { error } = await supabase.from("movimentacoes").insert(payload);
       if (error) throw new Error(friendlyDbError(error));
