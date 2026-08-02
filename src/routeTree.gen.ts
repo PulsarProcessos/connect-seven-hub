@@ -15,6 +15,8 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedVendasComissoesRouteImport } from './routes/_authenticated/vendas-comissoes'
 import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated/vendas'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
+import { Route as AuthenticatedOrcamentoRouteImport } from './routes/_authenticated/orcamento'
+import { Route as AuthenticatedOrcadoRealizadoRouteImport } from './routes/_authenticated/orcado-realizado'
 import { Route as AuthenticatedLojasRouteImport } from './routes/_authenticated/lojas'
 import { Route as AuthenticatedFornecedoresRouteImport } from './routes/_authenticated/fornecedores'
 import { Route as AuthenticatedFinanceirasRouteImport } from './routes/_authenticated/financeiras'
@@ -64,6 +66,17 @@ const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
   path: '/usuarios',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedOrcamentoRoute = AuthenticatedOrcamentoRouteImport.update({
+  id: '/orcamento',
+  path: '/orcamento',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedOrcadoRealizadoRoute =
+  AuthenticatedOrcadoRealizadoRouteImport.update({
+    id: '/orcado-realizado',
+    path: '/orcado-realizado',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedLojasRoute = AuthenticatedLojasRouteImport.update({
   id: '/lojas',
   path: '/lojas',
@@ -185,6 +198,8 @@ export interface FileRoutesByFullPath {
   '/financeiras': typeof AuthenticatedFinanceirasRoute
   '/fornecedores': typeof AuthenticatedFornecedoresRoute
   '/lojas': typeof AuthenticatedLojasRoute
+  '/orcado-realizado': typeof AuthenticatedOrcadoRealizadoRoute
+  '/orcamento': typeof AuthenticatedOrcamentoRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/vendas': typeof AuthenticatedVendasRoute
   '/vendas-comissoes': typeof AuthenticatedVendasComissoesRoute
@@ -209,6 +224,8 @@ export interface FileRoutesByTo {
   '/financeiras': typeof AuthenticatedFinanceirasRoute
   '/fornecedores': typeof AuthenticatedFornecedoresRoute
   '/lojas': typeof AuthenticatedLojasRoute
+  '/orcado-realizado': typeof AuthenticatedOrcadoRealizadoRoute
+  '/orcamento': typeof AuthenticatedOrcamentoRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/vendas': typeof AuthenticatedVendasRoute
   '/vendas-comissoes': typeof AuthenticatedVendasComissoesRoute
@@ -236,6 +253,8 @@ export interface FileRoutesById {
   '/_authenticated/financeiras': typeof AuthenticatedFinanceirasRoute
   '/_authenticated/fornecedores': typeof AuthenticatedFornecedoresRoute
   '/_authenticated/lojas': typeof AuthenticatedLojasRoute
+  '/_authenticated/orcado-realizado': typeof AuthenticatedOrcadoRealizadoRoute
+  '/_authenticated/orcamento': typeof AuthenticatedOrcamentoRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/_authenticated/vendas': typeof AuthenticatedVendasRoute
   '/_authenticated/vendas-comissoes': typeof AuthenticatedVendasComissoesRoute
@@ -264,6 +283,8 @@ export interface FileRouteTypes {
     | '/financeiras'
     | '/fornecedores'
     | '/lojas'
+    | '/orcado-realizado'
+    | '/orcamento'
     | '/usuarios'
     | '/vendas'
     | '/vendas-comissoes'
@@ -288,6 +309,8 @@ export interface FileRouteTypes {
     | '/financeiras'
     | '/fornecedores'
     | '/lojas'
+    | '/orcado-realizado'
+    | '/orcamento'
     | '/usuarios'
     | '/vendas'
     | '/vendas-comissoes'
@@ -314,6 +337,8 @@ export interface FileRouteTypes {
     | '/_authenticated/financeiras'
     | '/_authenticated/fornecedores'
     | '/_authenticated/lojas'
+    | '/_authenticated/orcado-realizado'
+    | '/_authenticated/orcamento'
     | '/_authenticated/usuarios'
     | '/_authenticated/vendas'
     | '/_authenticated/vendas-comissoes'
@@ -367,6 +392,20 @@ declare module '@tanstack/react-router' {
       path: '/usuarios'
       fullPath: '/usuarios'
       preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/orcamento': {
+      id: '/_authenticated/orcamento'
+      path: '/orcamento'
+      fullPath: '/orcamento'
+      preLoaderRoute: typeof AuthenticatedOrcamentoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/orcado-realizado': {
+      id: '/_authenticated/orcado-realizado'
+      path: '/orcado-realizado'
+      fullPath: '/orcado-realizado'
+      preLoaderRoute: typeof AuthenticatedOrcadoRealizadoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/lojas': {
@@ -517,6 +556,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedFinanceirasRoute: typeof AuthenticatedFinanceirasRoute
   AuthenticatedFornecedoresRoute: typeof AuthenticatedFornecedoresRoute
   AuthenticatedLojasRoute: typeof AuthenticatedLojasRoute
+  AuthenticatedOrcadoRealizadoRoute: typeof AuthenticatedOrcadoRealizadoRoute
+  AuthenticatedOrcamentoRoute: typeof AuthenticatedOrcamentoRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
   AuthenticatedVendasComissoesRoute: typeof AuthenticatedVendasComissoesRoute
@@ -542,6 +583,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedFinanceirasRoute: AuthenticatedFinanceirasRoute,
   AuthenticatedFornecedoresRoute: AuthenticatedFornecedoresRoute,
   AuthenticatedLojasRoute: AuthenticatedLojasRoute,
+  AuthenticatedOrcadoRealizadoRoute: AuthenticatedOrcadoRealizadoRoute,
+  AuthenticatedOrcamentoRoute: AuthenticatedOrcamentoRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
   AuthenticatedVendasComissoesRoute: AuthenticatedVendasComissoesRoute,
