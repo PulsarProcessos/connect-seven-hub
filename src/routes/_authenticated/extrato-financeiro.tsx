@@ -96,6 +96,8 @@ function ExtratoFinanceiroPage() {
   const [origem, setOrigem] = useState<string>("todos");
   const [idCategoria, setIdCategoria] = useState<string>("todos");
   const [status, setStatus] = useState<string>("todos");
+  const [contaSel, setContaSel] = useState<string>("todas");
+  const [detalhe, setDetalhe] = useState<Row | null>(null);
 
   const catsQ = useQuery({
     queryKey: ["categorias_flat"],
@@ -109,10 +111,31 @@ function ExtratoFinanceiroPage() {
     },
   });
 
+  const saldosQ = useQuery({
+    queryKey: ["saldos_contas", escopoLoja],
+    queryFn: async () => {
+      let q = supabase
+        .from("vw_saldos_contas")
+        .select("id_conta_bancaria, id_loja, banco, agencia, conta, saldo_inicial, saldo_atual");
+      if (escopoLoja) q = q.eq("id_loja", escopoLoja);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as {
+        id_conta_bancaria: string;
+        id_loja: string;
+        banco: string;
+        agencia: string;
+        conta: string;
+        saldo_inicial: number;
+        saldo_atual: number;
+      }[];
+    },
+  });
+
   const rowsQ = useQuery({
     queryKey: [
       "extrato_financeiro",
-      { escopoLoja, dtIni, dtFim, tipo, origem, idCategoria, status },
+      { escopoLoja, dtIni, dtFim, tipo, origem, idCategoria, status, contaSel },
     ],
     queryFn: async () => {
       let q = supabase
@@ -124,12 +147,11 @@ function ExtratoFinanceiroPage() {
 
       if (escopoLoja) q = q.eq("id_loja", escopoLoja);
       if (tipo !== "todos") q = q.eq("tipo", tipo);
-      if (origem !== "todos") {
-        if (origem === "ucase") q = q.eq("origem", "venda_ucase");
-        else q = q.eq("origem", "manual");
-      }
+      if (origem !== "todos") q = q.eq("origem", origem);
+      if (contaSel !== "todas") q = q.eq("id_conta_bancaria", contaSel);
       if (idCategoria !== "todos") q = q.eq("id_categoria", idCategoria);
-      if (status !== "todos") q = q.eq("status_conciliacao", status as "pendente" | "conciliado" | "atrasado");
+      if (status === "liquidado") q = q.eq("liquidado", true);
+      else if (status === "aberto") q = q.eq("liquidado", false);
 
       const { data, error } = await q;
       if (error) throw error;
@@ -152,6 +174,43 @@ function ExtratoFinanceiroPage() {
     }
     return { entradas, saidas, saldo: entradas - saidas };
   }, [rows]);
+
+  /**
+   * Saldo corrido. Com uma conta específica parte do saldo inicial dela;
+   * com "todas", soma os saldos iniciais das contas do escopo.
+   */
+  const saldoBase = useMemo(() => {
+    const contas = saldosQ.data ?? [];
+    if (contaSel !== "todas")
+      return Number(contas.find((c) => c.id_conta_bancaria === contaSel)?.saldo_inicial ?? 0);
+    return contas.reduce((s, c) => s + Number(c.saldo_inicial), 0);
+  }, [saldosQ.data, contaSel]);
+
+  const saldoPorLinha = useMemo(() => {
+    const asc = [...rows].sort((a, b) =>
+      a.data_movimento === b.data_movimento
+        ? a.id.localeCompare(b.id)
+        : a.data_movimento.localeCompare(b.data_movimento),
+    );
+    const map = new Map<string, number>();
+    let acc = saldoBase;
+    for (const r of asc) {
+      if (r.tipo !== "transferencia") {
+        acc += r.natureza === "receita" ? r.valor : -r.valor;
+      }
+      map.set(`${r.origem}-${r.id}`, acc);
+    }
+    return map;
+  }, [rows, saldoBase]);
+
+  const saldoAtualContas = useMemo(() => {
+    const contas = saldosQ.data ?? [];
+    if (contaSel !== "todas")
+      return Number(contas.find((c) => c.id_conta_bancaria === contaSel)?.saldo_atual ?? 0);
+    return contas.reduce((s, c) => s + Number(c.saldo_atual), 0);
+  }, [saldosQ.data, contaSel]);
+
+
 
   const exportCsv = () => {
     const header = [
