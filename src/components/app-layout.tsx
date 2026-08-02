@@ -70,6 +70,8 @@ const GROUPS: NavGroup[] = [
     items: [
       { label: "Importação de Vendas", to: "/vendas", icon: FileUp, roles: ["administrador", "gerente", "analista", "operador"] },
       { label: "Detalhamento de Vendas", to: "/detalhamento", icon: Receipt, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+      { label: "Comissões", to: "/vendas-comissoes", icon: Percent, roles: ["administrador", "master", "gerente", "analista"] },
+      { label: "Caixa", to: "/caixa", icon: Wallet, roles: ["administrador", "gerente", "analista", "operador"] },
     ],
   },
   {
@@ -77,22 +79,31 @@ const GROUPS: NavGroup[] = [
     items: [
       { label: "Extrato Bancário", to: "/extrato", icon: GitCompareArrows, roles: ["administrador", "gerente", "analista", "operador"] },
       { label: "Contas a Pagar", to: "/contas-pagar", icon: Wallet, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+      { label: "Contas a Receber", to: "/contas-receber", icon: Receipt, roles: ["administrador", "master", "gerente", "analista", "operador"] },
       { label: "Extrato Financeiro", to: "/extrato-financeiro", icon: ListTree, roles: ["administrador", "master", "gerente", "analista", "operador"] },
+    ],
+  },
+  {
+    label: "Cadastros",
+    items: [
+      { label: "Fornecedores", to: "/fornecedores", icon: Truck, roles: ["administrador", "gerente", "analista", "operador"] },
+      { label: "Clientes", to: "/clientes", icon: UserSquare2, roles: ["administrador", "gerente", "analista", "operador"] },
+      { label: "Categorias", to: "/categorias", icon: Tags, roles: ["administrador", "gerente", "analista"] },
+      { label: "Contas Bancárias", to: "/contas", icon: Wallet, roles: ["administrador", "gerente"] },
+      { label: "Comissões", to: "/comissoes", icon: Percent, roles: ["administrador"] },
+      { label: "Financeiras", to: "/financeiras", icon: Landmark, roles: ["administrador"] },
+      { label: "Cartões", to: "/cartoes", icon: CreditCard, roles: ["administrador"] },
     ],
   },
   {
     label: "Configurações",
     items: [
-      { label: "Cartões de Crédito", to: "/cartoes", icon: CreditCard, roles: ["administrador"] },
-      { label: "Financeiras", to: "/financeiras", icon: Landmark, roles: ["administrador"] },
-      { label: "Contas Bancárias", to: "/contas", icon: Wallet, roles: ["administrador", "gerente"] },
-      { label: "Comissões", to: "/comissoes", icon: Percent, roles: ["administrador"] },
-      { label: "Categorias", to: "/categorias", icon: Tags, roles: ["administrador", "gerente", "analista"] },
       { label: "Lojas", to: "/lojas", icon: Building2, roles: ["administrador"] },
       { label: "Usuários", to: "/usuarios", icon: Users, roles: ["administrador", "gerente"] },
     ],
   },
 ];
+
 
 
 export function AppLayout({ children }: { children: ReactNode }) {
