@@ -759,7 +759,6 @@ function ContaDialog({
           )}
         </div>
 
-        </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar
