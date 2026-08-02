@@ -15,6 +15,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedVendasRouteImport } from './routes/_authenticated/vendas'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedLojasRouteImport } from './routes/_authenticated/lojas'
+import { Route as AuthenticatedFornecedoresRouteImport } from './routes/_authenticated/fornecedores'
 import { Route as AuthenticatedFinanceirasRouteImport } from './routes/_authenticated/financeiras'
 import { Route as AuthenticatedExtratoFinanceiroRouteImport } from './routes/_authenticated/extrato-financeiro'
 import { Route as AuthenticatedExtratoRouteImport } from './routes/_authenticated/extrato'
@@ -25,6 +26,7 @@ import { Route as AuthenticatedContasPagarRouteImport } from './routes/_authenti
 import { Route as AuthenticatedContasRouteImport } from './routes/_authenticated/contas'
 import { Route as AuthenticatedConciliacaoRouteImport } from './routes/_authenticated/conciliacao'
 import { Route as AuthenticatedComissoesRouteImport } from './routes/_authenticated/comissoes'
+import { Route as AuthenticatedClientesRouteImport } from './routes/_authenticated/clientes'
 import { Route as AuthenticatedCategoriasRouteImport } from './routes/_authenticated/categorias'
 import { Route as AuthenticatedCartoesRouteImport } from './routes/_authenticated/cartoes'
 import { Route as AuthenticatedAlertasRouteImport } from './routes/_authenticated/alertas'
@@ -58,6 +60,12 @@ const AuthenticatedLojasRoute = AuthenticatedLojasRouteImport.update({
   path: '/lojas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedFornecedoresRoute =
+  AuthenticatedFornecedoresRouteImport.update({
+    id: '/fornecedores',
+    path: '/fornecedores',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedFinanceirasRoute =
   AuthenticatedFinanceirasRouteImport.update({
     id: '/financeiras',
@@ -115,6 +123,11 @@ const AuthenticatedComissoesRoute = AuthenticatedComissoesRouteImport.update({
   path: '/comissoes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedClientesRoute = AuthenticatedClientesRouteImport.update({
+  id: '/clientes',
+  path: '/clientes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedCategoriasRoute = AuthenticatedCategoriasRouteImport.update({
   id: '/categorias',
   path: '/categorias',
@@ -137,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/alertas': typeof AuthenticatedAlertasRoute
   '/cartoes': typeof AuthenticatedCartoesRoute
   '/categorias': typeof AuthenticatedCategoriasRoute
+  '/clientes': typeof AuthenticatedClientesRoute
   '/comissoes': typeof AuthenticatedComissoesRoute
   '/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/contas': typeof AuthenticatedContasRoute
@@ -147,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/extrato': typeof AuthenticatedExtratoRoute
   '/extrato-financeiro': typeof AuthenticatedExtratoFinanceiroRoute
   '/financeiras': typeof AuthenticatedFinanceirasRoute
+  '/fornecedores': typeof AuthenticatedFornecedoresRoute
   '/lojas': typeof AuthenticatedLojasRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/vendas': typeof AuthenticatedVendasRoute
@@ -156,6 +171,7 @@ export interface FileRoutesByTo {
   '/alertas': typeof AuthenticatedAlertasRoute
   '/cartoes': typeof AuthenticatedCartoesRoute
   '/categorias': typeof AuthenticatedCategoriasRoute
+  '/clientes': typeof AuthenticatedClientesRoute
   '/comissoes': typeof AuthenticatedComissoesRoute
   '/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/contas': typeof AuthenticatedContasRoute
@@ -166,6 +182,7 @@ export interface FileRoutesByTo {
   '/extrato': typeof AuthenticatedExtratoRoute
   '/extrato-financeiro': typeof AuthenticatedExtratoFinanceiroRoute
   '/financeiras': typeof AuthenticatedFinanceirasRoute
+  '/fornecedores': typeof AuthenticatedFornecedoresRoute
   '/lojas': typeof AuthenticatedLojasRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/vendas': typeof AuthenticatedVendasRoute
@@ -178,6 +195,7 @@ export interface FileRoutesById {
   '/_authenticated/alertas': typeof AuthenticatedAlertasRoute
   '/_authenticated/cartoes': typeof AuthenticatedCartoesRoute
   '/_authenticated/categorias': typeof AuthenticatedCategoriasRoute
+  '/_authenticated/clientes': typeof AuthenticatedClientesRoute
   '/_authenticated/comissoes': typeof AuthenticatedComissoesRoute
   '/_authenticated/conciliacao': typeof AuthenticatedConciliacaoRoute
   '/_authenticated/contas': typeof AuthenticatedContasRoute
@@ -188,6 +206,7 @@ export interface FileRoutesById {
   '/_authenticated/extrato': typeof AuthenticatedExtratoRoute
   '/_authenticated/extrato-financeiro': typeof AuthenticatedExtratoFinanceiroRoute
   '/_authenticated/financeiras': typeof AuthenticatedFinanceirasRoute
+  '/_authenticated/fornecedores': typeof AuthenticatedFornecedoresRoute
   '/_authenticated/lojas': typeof AuthenticatedLojasRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/_authenticated/vendas': typeof AuthenticatedVendasRoute
@@ -201,6 +220,7 @@ export interface FileRouteTypes {
     | '/alertas'
     | '/cartoes'
     | '/categorias'
+    | '/clientes'
     | '/comissoes'
     | '/conciliacao'
     | '/contas'
@@ -211,6 +231,7 @@ export interface FileRouteTypes {
     | '/extrato'
     | '/extrato-financeiro'
     | '/financeiras'
+    | '/fornecedores'
     | '/lojas'
     | '/usuarios'
     | '/vendas'
@@ -220,6 +241,7 @@ export interface FileRouteTypes {
     | '/alertas'
     | '/cartoes'
     | '/categorias'
+    | '/clientes'
     | '/comissoes'
     | '/conciliacao'
     | '/contas'
@@ -230,6 +252,7 @@ export interface FileRouteTypes {
     | '/extrato'
     | '/extrato-financeiro'
     | '/financeiras'
+    | '/fornecedores'
     | '/lojas'
     | '/usuarios'
     | '/vendas'
@@ -241,6 +264,7 @@ export interface FileRouteTypes {
     | '/_authenticated/alertas'
     | '/_authenticated/cartoes'
     | '/_authenticated/categorias'
+    | '/_authenticated/clientes'
     | '/_authenticated/comissoes'
     | '/_authenticated/conciliacao'
     | '/_authenticated/contas'
@@ -251,6 +275,7 @@ export interface FileRouteTypes {
     | '/_authenticated/extrato'
     | '/_authenticated/extrato-financeiro'
     | '/_authenticated/financeiras'
+    | '/_authenticated/fornecedores'
     | '/_authenticated/lojas'
     | '/_authenticated/usuarios'
     | '/_authenticated/vendas'
@@ -304,6 +329,13 @@ declare module '@tanstack/react-router' {
       path: '/lojas'
       fullPath: '/lojas'
       preLoaderRoute: typeof AuthenticatedLojasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/fornecedores': {
+      id: '/_authenticated/fornecedores'
+      path: '/fornecedores'
+      fullPath: '/fornecedores'
+      preLoaderRoute: typeof AuthenticatedFornecedoresRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/financeiras': {
@@ -376,6 +408,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedComissoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/clientes': {
+      id: '/_authenticated/clientes'
+      path: '/clientes'
+      fullPath: '/clientes'
+      preLoaderRoute: typeof AuthenticatedClientesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/categorias': {
       id: '/_authenticated/categorias'
       path: '/categorias'
@@ -404,6 +443,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlertasRoute: typeof AuthenticatedAlertasRoute
   AuthenticatedCartoesRoute: typeof AuthenticatedCartoesRoute
   AuthenticatedCategoriasRoute: typeof AuthenticatedCategoriasRoute
+  AuthenticatedClientesRoute: typeof AuthenticatedClientesRoute
   AuthenticatedComissoesRoute: typeof AuthenticatedComissoesRoute
   AuthenticatedConciliacaoRoute: typeof AuthenticatedConciliacaoRoute
   AuthenticatedContasRoute: typeof AuthenticatedContasRoute
@@ -414,6 +454,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedExtratoRoute: typeof AuthenticatedExtratoRoute
   AuthenticatedExtratoFinanceiroRoute: typeof AuthenticatedExtratoFinanceiroRoute
   AuthenticatedFinanceirasRoute: typeof AuthenticatedFinanceirasRoute
+  AuthenticatedFornecedoresRoute: typeof AuthenticatedFornecedoresRoute
   AuthenticatedLojasRoute: typeof AuthenticatedLojasRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedVendasRoute: typeof AuthenticatedVendasRoute
@@ -424,6 +465,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAlertasRoute: AuthenticatedAlertasRoute,
   AuthenticatedCartoesRoute: AuthenticatedCartoesRoute,
   AuthenticatedCategoriasRoute: AuthenticatedCategoriasRoute,
+  AuthenticatedClientesRoute: AuthenticatedClientesRoute,
   AuthenticatedComissoesRoute: AuthenticatedComissoesRoute,
   AuthenticatedConciliacaoRoute: AuthenticatedConciliacaoRoute,
   AuthenticatedContasRoute: AuthenticatedContasRoute,
@@ -434,6 +476,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedExtratoRoute: AuthenticatedExtratoRoute,
   AuthenticatedExtratoFinanceiroRoute: AuthenticatedExtratoFinanceiroRoute,
   AuthenticatedFinanceirasRoute: AuthenticatedFinanceirasRoute,
+  AuthenticatedFornecedoresRoute: AuthenticatedFornecedoresRoute,
   AuthenticatedLojasRoute: AuthenticatedLojasRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedVendasRoute: AuthenticatedVendasRoute,
