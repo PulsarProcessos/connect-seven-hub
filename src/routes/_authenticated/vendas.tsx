@@ -433,6 +433,7 @@ function ImportarVendasPage() {
     // insert in batches to show progress
     const BATCH = 200;
     let inserted = 0;
+    const inseridas: { id: string; valor_bruto: number; numero_venda: string | null; data_venda: string }[] = [];
     for (let i = 0; i < toImport.length; i += BATCH) {
       const slice = toImport.slice(i, i + BATCH).map((r) => ({
         id_loja: loja,
@@ -445,22 +446,95 @@ function ImportarVendasPage() {
         id_importacao: imp.id,
         data_venda: r.data_venda,
         valor_bruto: r.valor_bruto,
+        id_vendedor: idVendedor || null,
       }));
-      const { error } = await supabase.from("vendas_ucase").insert(slice);
+      const { data: novas, error } = await supabase
+        .from("vendas_ucase")
+        .insert(slice)
+        .select("id, valor_bruto, numero_venda, data_venda");
       if (error) {
         setImporting(false);
         return toast.error(`Erro ao importar: ${error.message}`);
       }
+      inseridas.push(...((novas ?? []) as typeof inseridas));
       inserted += slice.length;
       setProgress(Math.round((inserted / toImport.length) * 100));
+    }
+
+    let comissoesCriadas = 0;
+    if (idVendedor && inseridas.length > 0) {
+      comissoesCriadas = await gerarComissoes(loja, idVendedor, inseridas);
     }
 
     setImporting(false);
     setProgress(0);
     setRows([]);
     setFileName("");
-    toast.success(`${inserted} venda(s) importada(s) com sucesso`);
+    toast.success(
+      `${inserted} venda(s) importada(s) com sucesso` +
+        (comissoesCriadas ? ` · ${comissoesCriadas} comissão(ões) lançada(s) em Contas a Pagar` : ""),
+    );
   };
+
+  /** Cria um título em contas a pagar por venda, com a comissão do vendedor. */
+  async function gerarComissoes(
+    loja: string,
+    vendedor: string,
+    vendas: { id: string; valor_bruto: number; numero_venda: string | null; data_venda: string }[],
+  ): Promise<number> {
+    const { data: regras } = await supabase
+      .from("comissao_regras")
+      .select("id_vendedor, valor_min, valor_max, percentual, ativa")
+      .eq("id_loja", loja)
+      .eq("ativa", true);
+
+    const todas = regras ?? [];
+    const doVendedor = todas.filter((r) => r.id_vendedor === vendedor);
+    const aplicaveis = doVendedor.length > 0 ? doVendedor : todas.filter((r) => !r.id_vendedor);
+    if (aplicaveis.length === 0) return 0;
+
+    const calcular = (total: number) => {
+      let com = 0;
+      for (const f of [...aplicaveis].sort((a, b) => Number(a.valor_min) - Number(b.valor_min))) {
+        const teto = f.valor_max == null ? total : Math.min(Number(f.valor_max), total);
+        const fatia = teto - Number(f.valor_min);
+        if (fatia > 0) com += (fatia * Number(f.percentual)) / 100;
+      }
+      return Math.round(com * 100) / 100;
+    };
+
+    const { data: cat } = await supabase
+      .from("dre_categorias")
+      .select("id")
+      .ilike("nome", "%comiss%")
+      .limit(1)
+      .maybeSingle();
+
+    const nomeVendedor = vendedores.find((v) => v.id === vendedor)?.nome ?? "vendedor";
+
+    const titulos = vendas
+      .map((v) => ({ v, valor: calcular(Number(v.valor_bruto)) }))
+      .filter((x) => x.valor > 0)
+      .map(({ v, valor }) => ({
+        id_loja: loja,
+        descricao: `Comissão ${nomeVendedor} · venda ${v.numero_venda ?? v.id.slice(0, 8)}`,
+        fornecedor: nomeVendedor,
+        id_categoria: cat?.id ?? null,
+        valor,
+        data_vencimento: String(v.data_venda).slice(0, 10),
+        status: "aberto" as const,
+        criado_por: profile?.id ?? null,
+      }));
+
+    if (titulos.length === 0) return 0;
+    const { error } = await supabase.from("contas_pagar").insert(titulos);
+    if (error) {
+      toast.error(`Vendas importadas, mas as comissões falharam: ${error.message}`);
+      return 0;
+    }
+    return titulos.length;
+  }
+
 
   if (profile && profile.role === "master") {
     return (
