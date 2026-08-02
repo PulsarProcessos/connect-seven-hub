@@ -188,7 +188,7 @@ function ComissoesPage() {
             <SelectContent>
               {lojas.map((l) => (
                 <SelectItem key={l.id} value={l.id}>
-                  {l.nome_fantasia}
+                  {l.nome}
                 </SelectItem>
               ))}
             </SelectContent>
