@@ -648,6 +648,65 @@ export function ConciliacaoPanel({ lojaId }: { lojaId: string }) {
           </Button>
         </div>
       )}
+
+      <div className="mt-6 rounded-lg border border-border bg-card">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+          <ArrowUpRight className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold">Depósitos em lotérica a conciliar</h3>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {depositos.length} pendente(s)
+          </span>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Data</TableHead>
+              <TableHead>Comprovante</TableHead>
+              <TableHead className="text-right">Valor</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {depositos.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3} className="py-6 text-center text-sm text-muted-foreground">
+                  Nenhum depósito aguardando conciliação.
+                </TableCell>
+              </TableRow>
+            ) : (
+              depositos.map((d) => (
+                <TableRow
+                  key={d.id}
+                  onClick={() => !readonly && setSelDeposito(d.id)}
+                  className={`cursor-pointer ${selDeposito === d.id ? "bg-primary/10" : ""}`}
+                >
+                  <TableCell className="font-mono text-xs">{fmtData(d.data_deposito)}</TableCell>
+                  <TableCell className="text-sm">nº {d.numero_comprovante}</TableCell>
+                  <TableCell className="text-right font-mono text-sm text-emerald-600">
+                    {fmt(d.valor)}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+        {!readonly && depositos.length > 0 && (
+          <div className="flex items-center gap-3 border-t border-border px-4 py-3">
+            <span className="text-sm text-muted-foreground">
+              Selecione o depósito e o lançamento do extrato correspondente.
+            </span>
+            <Button
+              className="ml-auto"
+              variant="secondary"
+              disabled={!selDeposito || !selLanc || busy}
+              onClick={conciliarDeposito}
+            >
+              <Link2 className="h-4 w-4" />
+              Conciliar depósito
+            </Button>
+          </div>
+        )}
+      </div>
+
     </>
   );
 }
