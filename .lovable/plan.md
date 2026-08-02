@@ -1,35 +1,43 @@
-## Reestruturação do Cadastro de Lojas
+## Objetivo
 
-Aplicar em 3 passos, na ordem:
+Corrigir os erros de cadastro relatados, construir o Dashboard Financeiro (DRE interativa + Fluxo de Caixa) e revisar o isolamento de dados por loja/nível de usuário.
 
-### 1. Migration V4 (banco)
-Executar via `supabase--migration` o SQL entregue:
-- Enum `tipo_socio` (`propria` | `franqueado`)
-- Tabela `public.tipos_loja` (lista livre, com RLS: SELECT autenticado, ALL admin) + seed de 4 tipos (Loja de Shopping, Loja de Rua, Quiosque, Franquia)
-- Em `public.lojas`: adiciona `razao_social`, `tipo_socio`, `id_tipo_loja` (FK → `tipos_loja`), índices
-- Backfill: `tipo_socio='propria'` e `razao_social=nome_fantasia` onde nulos
-- NOT NULL em `razao_social`, `tipo_socio`, `nome_fantasia`, `cnpj`
-- **Remove** coluna `tipo` (matriz/filial)
-- View `vw_lojas` com labels resolvidos (`security_invoker=true`)
-- Passo 6 (carga das 20 lojas por CNPJ) fica **comentado** conforme entregue — só executo se você pedir.
+## 1. Correção dos cadastros com erro
 
-### 2. Regenerar types
-Após a migration aprovada, os `types.ts` são regerados automaticamente. Não vou sobrescrever com o arquivo enviado — o pipeline oficial já reflete o novo schema.
+Verificado no código e no banco:
 
-### 3. Frontend
-Substituir `src/routes/_authenticated/lojas.tsx` pelo arquivo entregue em `user-uploads://lojas.tsx` (592 linhas). Ele traz:
-- Colunas: Tipo Sócio (badge roxo/âmbar) · CNPJ · Razão Social · Nome Loja · Tipo de Loja · Status · Ações
-- Busca (nome fantasia / razão social / CNPJ) + filtros Tipo Sócio e Tipo de Loja (com "Sem tipo definido")
-- Form com obrigatórios marcados, Tipo de Loja opcional ("— Não definido")
-- Botão "Tipos de loja" → modal de gestão (add / ativar-desativar / remover, com tratamento de duplicidade e FK)
-- Bloqueio para não-admin mantido
+- **Nova saída (Despesa/Venda/Transferência)** — o botão "Novo" converte o valor com `Number(valor.replace(",", "."))`. Se o usuário digita no formato brasileiro com milhar (`1.500,00`), o resultado é inválido e o lançamento é recusado. Correção: aplicar a mesma máscara monetária já usada em Comissões (digitação da direita para a esquerda) e um parser único compartilhado.
+- Ainda no mesmo formulário: quando o administrador está com "Todas as lojas" selecionado, o campo Loja abre vazio e o erro só aparece ao salvar — passará a bloquear o botão com aviso claro.
+- **Comissões** — a estrutura da tabela, as regras de acesso e as permissões estão corretas no banco (apenas administrador grava). A causa exata do erro ainda **não está confirmada**; primeira tarefa da implementação: reproduzir o cadastro de faixa e capturar a mensagem real (validação de percentual, faixa sobreposta ou permissão), e então corrigir. As mensagens de erro passarão a exibir texto explicativo em vez do erro técnico do banco.
 
-### Impacto no resto do app
-Nenhuma outra tela precisa mudar: `nome_fantasia` foi preservado, e os seletores de loja (Vendas, Extrato, Conciliação, Alertas, Usuários, Dashboard, auth-context) continuam usando esse campo. A coluna removida `tipo` não é lida em nenhum outro arquivo além do próprio `lojas.tsx`.
+## 2. Varredura dos demais módulos
 
-### Observações
-- **Razão social provisória**: lojas existentes ficarão com `razao_social = nome_fantasia` até você editar pela tela ou rodar o passo 6.
-- **Tipo sócio padrão**: todas viram `propria`; passo 6 corrige os 8 franqueados.
-- Se quiser, no fim posso descomentar e rodar o passo 6 num segundo `supabase--insert` para popular as 20 lojas da planilha — me avise.
+Passar por Financeiras, Lojas/Tipos de loja, Contas bancárias, Cartões, Categorias (DRE), Usuários, Contas a Pagar, Importação de Vendas, Importação de Extrato e Conciliação, testando criar/editar/excluir em cada um. Para cada falha encontrada: corrigir e padronizar máscaras (moeda, percentual, data) e mensagens de erro. Entrego uma lista do que foi verificado e do que foi corrigido.
 
-Confirma para eu executar?
+## 3. Dashboard Financeiro (`/dashboard-financeiro`)
+
+Hoje a página é apenas um marcador. Será reconstruída com duas seções em abas:
+
+**Aba DRE**
+- Layout em duas colunas: à esquerda a DRE em tabela (Categoria | Valor | % sobre a receita), agrupada por grupo DRE com totais e possibilidade de expandir/recolher.
+- Ao clicar em uma categoria (ou em um grupo), a tabela à direita mostra os lançamentos daquela categoria no período (data, descrição, loja, conta, valor), com total.
+- Linha de receita bruta, total de despesas e resultado no rodapé.
+
+**Aba Fluxo de Caixa**
+- Panorama de **a receber** (vendas com recebimento previsto) e **a pagar** (contas a pagar), com saldo projetado.
+- Quebra por semana/vencimento dentro do período, com marcação de vencidos, e listagem dos itens.
+
+**Filtros**: seletor de **mês** e **ano** em todas as seções (padrão: mês corrente), mais o filtro de loja já existente na barra superior.
+
+## 4. Isolamento por loja e por nível
+
+- Revisão das regras de acesso no banco tabela por tabela (vendas, extrato, movimentações, contas a pagar, contas bancárias, comissões, categorias, usuários, importações), confirmando que cada consulta é limitada à loja do usuário e que administrador/master enxergam todas.
+- Revisão do lado da tela: garantir que nenhuma listagem, seletor de loja ou consulta ignore o escopo, e que gerente/analista/operador nunca recebam a lista completa de lojas nem consigam lançar em outra loja.
+- Ajuste das telas novas (DRE e Fluxo de Caixa) para respeitarem o mesmo escopo.
+- Ao final, rodar a verificação de segurança do banco e relatar o resultado.
+
+## Detalhes técnicos
+
+- Utilitário compartilhado de máscara/parse monetário em `src/lib/`, reaproveitado no botão "Novo", Contas a Pagar e Comissões.
+- Dashboard Financeiro em `src/routes/_authenticated/dashboard-financeiro.tsx`, com componentes separados para DRE e Fluxo de Caixa; dados via a view financeira já existente (`vw_extrato_financeiro`) mais `vendas_ucase` e `contas_pagar`, consultados com React Query.
+- Correções de regras de acesso, se necessárias, entram como migração do banco (apresentada para aprovação antes de rodar).
