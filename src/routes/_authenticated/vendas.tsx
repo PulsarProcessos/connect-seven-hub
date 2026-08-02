@@ -266,6 +266,26 @@ function ImportarVendasPage() {
     })();
   }, [profile?.id_loja, isAdmin]);
 
+  // Vendedores da loja-alvo, para atribuir a venda e gerar a comissão.
+  useEffect(() => {
+    const loja = targetLoja || profile?.id_loja;
+    (async () => {
+      if (!loja) {
+        setVendedores([]);
+        return;
+      }
+      const { data } = await supabase
+        .from("usuarios_perfis")
+        .select("id, nome")
+        .eq("id_loja", loja)
+        .eq("ativo", true)
+        .order("nome");
+      setVendedores((data ?? []) as { id: string; nome: string }[]);
+    })();
+    setIdVendedor("");
+  }, [targetLoja, profile?.id_loja]);
+
+
   // O seletor do topo manda: ao escolher uma unidade lá (ou clicar num bloco
   // da Visão Geral), esta tela passa a importar para aquela loja.
   // Em "Todas as unidades" o destino fica em aberto, e a tela pede a escolha.
